@@ -1,0 +1,45 @@
+name: Build
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+    steps:
+      - name: Configure JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Gradle Build and Test
+        uses: gradle/gradle-build-action@v3.4.2
+        with:
+          arguments: --build-cache --configuration-cache build test koverXmlReport
+
+#      - name: Add coverage report to PR
+#        id: kover
+#        uses: mi-kas/kover-report@v1
+#        with:
+#          path: |
+#            ${{ github.workspace }}/build/reports/kover/report.xml
+#          title: Code Coverage
+#          update-comment: true
+#          min-coverage-overall: 80
+#          min-coverage-changed-files: 80
+#          coverage-counter-type: LINE
+
+#      - name: Upload coverage reports to Codecov
+#        uses: codecov/codecov-action@v4
+#        env:
+#          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
