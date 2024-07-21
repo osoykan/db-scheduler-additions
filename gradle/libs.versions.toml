@@ -86,4 +86,4 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "6.25.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
-kover = { id = "org.jetbrains.kotlinx.kover", version = "0.8.2" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.8.3" }
