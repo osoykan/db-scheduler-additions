@@ -7,7 +7,7 @@ jackson = "2.17.2"
 arrow = "1.2.4"
 micrometer-prometheus = "1.13.2"
 detekt = "1.23.6"
-dbscheduler = "14.0.2"
+dbscheduler = "14.0.3"
 slf4j = "2.0.13"
 
 ## test
