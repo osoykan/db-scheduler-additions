@@ -18,14 +18,14 @@ import org.testcontainers.couchbase.CouchbaseService
 import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
 
-typealias SchedulerFactory = (List<Task<*>>, String) -> Scheduler
+typealias SchedulerFactory = suspend (List<Task<*>>, String, String?) -> Scheduler
 
 private const val DEFAULT_BUCKET = "db-scheduler"
 
 @ExperimentalKotest
 class Stove : AbstractProjectConfig() {
-  override val concurrentSpecs: Int = 1
-  override val concurrentTests: Int = 1
+  override val concurrentSpecs: Int = 10
+  override val concurrentTests: Int = 10
 
   override suspend fun beforeProject() = TestSystem {
     enableReuseForTestContainers()
@@ -62,7 +62,7 @@ class Stove : AbstractProjectConfig() {
 
   class DbSchedulerApp : ApplicationUnderTest<SchedulerFactory> {
     companion object {
-      lateinit var createScheduler: (List<Task<*>>, String) -> Scheduler
+      lateinit var createScheduler: SchedulerFactory
     }
 
     override suspend fun start(configurations: List<String>): SchedulerFactory {
@@ -83,10 +83,14 @@ class Stove : AbstractProjectConfig() {
         compression { this.enable = true }
         this.jsonSerializer = JacksonJsonSerializer(CouchbaseScheduler.defaultObjectMapper)
         this.transcoder = JsonTranscoder(JacksonJsonSerializer(CouchbaseScheduler.defaultObjectMapper))
-      }.also { it.waitUntilReady(20.seconds) }
+      }.also { it.waitUntilReady(30.seconds) }
 
-      val couchbase = Couchbase(cluster, DEFAULT_BUCKET)
-      createScheduler = { tasks: List<Task<*>>, name: String -> CouchbaseScheduler.create(couchbase, knownTasks = tasks, name) }
+      createScheduler = { tasks: List<Task<*>>, name: String, preferredCollection: String? ->
+        val couchbase = Couchbase(cluster, DEFAULT_BUCKET, preferredCollection)
+        couchbase.ensurePreferredCollectionExists()
+        cluster.waitUntilReady(30.seconds)
+        CouchbaseScheduler.create(couchbase, knownTasks = tasks, name)
+      }
       return createScheduler
     }
 
@@ -103,10 +107,11 @@ class Stove : AbstractProjectConfig() {
 suspend fun scheduler(
   name: String,
   vararg tasks: Task<*>,
+  uniqueCollection: String? = null,
   block: suspend Scheduler.() -> Unit
 ) = validate {
   using<SchedulerFactory> {
-    val scheduler = this(tasks.toList(), name)
+    val scheduler = this(tasks.toList(), name, uniqueCollection)
     scheduler.start()
     block(scheduler)
     scheduler.stop()

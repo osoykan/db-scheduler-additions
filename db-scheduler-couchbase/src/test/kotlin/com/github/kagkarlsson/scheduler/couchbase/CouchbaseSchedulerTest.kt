@@ -28,7 +28,8 @@ class CouchbaseSchedulerTest : FunSpec({
     val task = Tasks.oneTime("A One Time Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    scheduler(testCase.name.testName, task) {
+    val collectionName = UUID.randomUUID().toString().take(10)
+    scheduler(testCase.name.testName, task, uniqueCollection = collectionName) {
       schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusMillis(200))
       eventually(30.seconds) {
         executionCount.get() shouldBe 1
@@ -42,9 +43,10 @@ class CouchbaseSchedulerTest : FunSpec({
     val task = Tasks.oneTime("50Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val collectionName = UUID.randomUUID().toString().take(10)
     val tasks = (1..50)
     val time = Instant.now()
-    scheduler(testCase.name.testName, task) {
+    scheduler(testCase.name.testName, task, uniqueCollection = collectionName) {
       tasks.map { i -> async { schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
       eventually(30.seconds) {
         executionCount.get() shouldBe 50
@@ -59,13 +61,14 @@ class CouchbaseSchedulerTest : FunSpec({
       .initialData(TestTaskData("test"))
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    scheduler("Recurring Scheduler Scheduling") {
+    val collectionName = UUID.randomUUID().toString().take(10)
+    scheduler("Recurring Scheduler Scheduling", uniqueCollection = collectionName) {
       val client = this as SchedulerClient
       client.scheduleIfNotExists(task.instance("recurring-task", TestTaskData("test")), Instant.now())
     }
 
-    scheduler("Recurring Scheduler Processing", task) {
-      eventually(8.seconds) {
+    scheduler("Recurring Scheduler Processing", task, uniqueCollection = collectionName) {
+      eventually(10.seconds) {
         executionCount.get() shouldBe 2
         executionCount.get() shouldNotBeGreaterThan 2
       }
@@ -80,13 +83,14 @@ class CouchbaseSchedulerTest : FunSpec({
     val count = 200
     val tasks = (1..count)
     val time = Instant.now()
-    scheduler(testCase.name.testName) {
+    val collectionName = UUID.randomUUID().toString().take(10)
+    scheduler(testCase.name.testName, uniqueCollection = collectionName) {
       tasks.map { i -> async { schedule(task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
     }
 
-    scheduler(testCase.name.testName + "Racer 1", task) {
-      scheduler(testCase.name.testName + "Racer 2", task) {
-        scheduler(testCase.name.testName + "Racer 3", task) {
+    scheduler(testCase.name.testName + "Racer 1", task, uniqueCollection = collectionName) {
+      scheduler(testCase.name.testName + "Racer 2", task, uniqueCollection = collectionName) {
+        scheduler(testCase.name.testName + "Racer 3", task, uniqueCollection = collectionName) {
           eventually(30.seconds) {
             executionCount.get() shouldBe count
             executionCount.get() shouldNotBeGreaterThan count
@@ -100,6 +104,7 @@ class CouchbaseSchedulerTest : FunSpec({
 
   test("failing one time task is retried") {
     val maxRetry = 3
+    val collectionName = UUID.randomUUID().toString().take(10)
     val executionCount = AtomicInt(0)
     val task = Tasks.oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .onFailure { executionComplete, executionOperations ->
@@ -112,7 +117,7 @@ class CouchbaseSchedulerTest : FunSpec({
         error("on purpose failure")
       }
 
-    scheduler(testCase.name.testName, task) {
+    scheduler(testCase.name.testName, task, uniqueCollection = collectionName) {
       schedule(task.instance("failing-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now())
       eventually(30.seconds) {
         executionCount.get() shouldBe 3

@@ -1,6 +1,7 @@
 package com.github.kagkarlsson.scheduler.couchbase
 
 import arrow.core.*
+import arrow.core.raise.option
 import com.couchbase.client.core.error.*
 import com.couchbase.client.kotlin.*
 import com.couchbase.client.kotlin.Collection
@@ -19,9 +20,27 @@ import kotlin.time.Duration.Companion.seconds
 
 data class Couchbase(
   val cluster: Cluster,
-  val bucketName: String
+  val bucketName: String,
+  val preferredCollection: String? = null
 ) {
-  val defaultCollection: Collection by lazy { cluster.bucket(bucketName).defaultCollection() }
+  private val bucket = cluster.bucket(bucketName)
+  private val defaultScope = bucket.defaultScope()
+
+  suspend fun ensurePreferredCollectionExists() {
+    option {
+      val collection = preferredCollection.toOption().bind()
+      val exists = bucket.collections.getScope(defaultScope.name).collections.any { it.name == collection }
+      if (exists) {
+        return@option
+      }
+
+      cluster.bucket(bucketName).collections.createCollection(defaultScope.name, collection)
+    }
+  }
+
+  val defaultCollection: Collection by lazy {
+    preferredCollection?.let { cluster.bucket(bucketName).collection(it) } ?: cluster.bucket(bucketName).defaultCollection()
+  }
 }
 
 @Suppress("TooManyFunctions")
