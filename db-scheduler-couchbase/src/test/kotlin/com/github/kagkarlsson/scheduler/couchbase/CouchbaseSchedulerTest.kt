@@ -61,7 +61,7 @@ class CouchbaseSchedulerTest : FunSpec({
 
     scheduler("Recurring Scheduler Scheduling") {
       val client = this as SchedulerClient
-      client.schedule(task.instance("recurring-task", TestTaskData("test")), Instant.now())
+      client.scheduleIfNotExists(task.instance("recurring-task", TestTaskData("test")), Instant.now())
     }
 
     scheduler("Recurring Scheduler Processing", task) {
