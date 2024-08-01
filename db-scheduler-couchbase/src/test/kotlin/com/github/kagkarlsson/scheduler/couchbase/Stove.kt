@@ -24,8 +24,8 @@ private const val DEFAULT_BUCKET = "db-scheduler"
 
 @ExperimentalKotest
 class Stove : AbstractProjectConfig() {
-  override val concurrentSpecs: Int = Runtime.getRuntime().availableProcessors()
-  override val concurrentTests: Int = Runtime.getRuntime().availableProcessors()
+  override val concurrentSpecs: Int = 1
+  override val concurrentTests: Int = 1
 
   override suspend fun beforeProject() = TestSystem {
     enableReuseForTestContainers()
