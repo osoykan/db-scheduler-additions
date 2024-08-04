@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Gradle Build and Test
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
         with:
           arguments: --build-cache --configuration-cache build test koverXmlReport
 
