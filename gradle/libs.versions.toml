@@ -8,7 +8,7 @@ arrow = "1.2.4"
 micrometer-prometheus = "1.13.2"
 detekt = "1.23.6"
 dbscheduler = "14.0.3"
-slf4j = "2.0.13"
+slf4j = "2.0.14"
 
 ## test
 junit = "5.10.3"
