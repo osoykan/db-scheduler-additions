@@ -11,7 +11,7 @@ dbscheduler = "14.0.3"
 slf4j = "2.0.15"
 
 ## test
-junit = "5.10.3"
+junit = "5.11.0"
 kotest = "5.9.1"
 stove = "1.0.0-SNAPSHOT"
 mockk = "1.13.12"
