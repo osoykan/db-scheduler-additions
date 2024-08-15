@@ -53,7 +53,7 @@ jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module
 zalando-problem-jackson = { module = "org.zalando:jackson-datatype-problem", version = "0.27.1" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.6" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.7" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
