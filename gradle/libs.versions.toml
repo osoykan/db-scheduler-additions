@@ -9,6 +9,8 @@ micrometer-prometheus = "1.13.3"
 detekt = "1.23.6"
 dbscheduler = "14.0.3"
 slf4j = "2.0.16"
+ktor = "2.3.12"
+koin = "3.5.6"
 
 ## test
 junit = "5.11.0"
@@ -57,9 +59,37 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.7"
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
+# koin
+koin = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
+
+# Ktor
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-config-yml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-serialization-jackson-json = { module = "io.ktor:ktor-serialization-jackson", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-statuspages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-callLogging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-autoHeadResponse = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
+ktor-server-cachingHeaders = { module = "io.ktor:ktor-server-caching-headers", version.ref = "ktor" }
+ktor-server-callId = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor" }
+ktor-server-conditionalHeaders = { module = "io.ktor:ktor-server-conditional-headers", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", version.ref = "ktor" }
+ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor" }
+ktor-swagger-ui = { module = "io.github.smiley4:ktor-swagger-ui", version = "3.2.0" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-plugins-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+
 # Others
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
+dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "3.2.0" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
 
 ## Testing

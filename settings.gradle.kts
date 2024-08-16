@@ -3,7 +3,8 @@
 rootProject.name = "db-scheduler-additions"
 
 include(
-  "db-scheduler-couchbase"
+  "db-scheduler-couchbase",
+  "db-scheduler-ktor"
 )
 
 pluginManagement {
