@@ -5,13 +5,14 @@ plugins {
 
 tasks.shadowJar {
   isEnableRelocation = true
-  relocationPrefix = "io.github.osoykan"
-  relocate("org.springframework", "dbscheduler.ktor.org.springframework")
-  relocate("org.springframework.boot", "dbscheduler.ktor.org.springframework.boot")
+  relocate("org.springframework", "shadow.org.springframework")
+  relocate("org.springframework.boot", "shadow.org.springframework.boot")
 }
 
-tasks.build {
-  dependsOn("shadowJar")
+tasks.jar {
+  dependsOn(tasks.shadowJar)
+  from(zipTree(tasks.shadowJar.get().archiveFile))
+  duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
 dependencies {
