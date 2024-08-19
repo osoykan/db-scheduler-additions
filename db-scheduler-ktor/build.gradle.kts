@@ -1,11 +1,31 @@
 plugins {
   kotlin("jvm") version libs.versions.kotlin
+  alias(libs.plugins.shadow)
+}
+
+tasks.shadowJar {
+  isEnableRelocation = true
+  relocationPrefix = "db.scheduler.ktor"
+}
+
+tasks.build {
+  dependsOn("shadowJar")
 }
 
 dependencies {
   implementation(libs.dbScheduler)
   implementation(libs.dbScheduler.ui) {
-    exclude(group = "org.springframework")
+    exclude(group = "org.springframework", module = "spring-webflux")
+    exclude(group = "org.springframework", module = "spring-webmvc")
+//    exclude(group = "org.springframework", module = "spring-web")
+    exclude(group = "org.springframework", module = "spring-tx")
+//    exclude(group = "org.springframework", module = "spring-jdbc")
+    exclude(group = "org.springframework", module = "spring-jcl")
+    exclude(group = "org.springframework", module = "spring-expressions")
+//    exclude(group = "org.springframework", module = "spring-core")
+    exclude(group = "org.springframework", module = "spring-context")
+    exclude(group = "org.springframework", module = "spring-beans")
+    exclude(group = "org.springframework", module = "spring-aop")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-web")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-webflux")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-autoconfigure")
@@ -13,6 +33,7 @@ dependencies {
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-thymeleaf")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-json")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter")
+//    exclude(group = "org.springframework.boot", module = "spring-boot-starter-jdbc")
   }
   implementation(libs.jackson.kotlin)
   implementation(libs.jackson.databind)
@@ -20,21 +41,7 @@ dependencies {
   implementation(libs.slf4j.api)
   implementation(libs.arrow.core)
   implementation(libs.ktor.server.core)
-  implementation(libs.ktor.server.netty)
-  implementation(libs.ktor.server.content.negotiation)
-  implementation(libs.ktor.server.statuspages)
-  implementation(libs.ktor.server.callLogging)
-  implementation(libs.ktor.server.callId)
-  implementation(libs.ktor.server.conditionalHeaders)
   implementation(libs.ktor.server.cors)
-  implementation(libs.ktor.server.defaultHeaders)
-  implementation(libs.ktor.server.cachingHeaders)
-  implementation(libs.ktor.server.autoHeadResponse)
-  implementation(libs.ktor.server.config.yml)
-  implementation(libs.ktor.serialization.jackson.json)
-
-  implementation(libs.koin.ktor)
-  implementation(libs.koin)
 }
 
 dependencies {

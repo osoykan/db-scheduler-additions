@@ -112,8 +112,14 @@ stove-testing-wiremock = { module = "com.trendyol:stove-testing-e2e-wiremock", v
 stove-testing-kafka = { module = "com.trendyol:stove-testing-e2e-kafka", version.ref = "stove" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }
+hikari = { module = "com.zaxxer:HikariCP", version = "5.1.0" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.3" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.0" }
+
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "6.25.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.8.3" }
+shadow = { id = "com.gradleup.shadow", version = "8.3.0" }

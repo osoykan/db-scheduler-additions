@@ -5,9 +5,9 @@ import com.github.kagkarlsson.scheduler.serializer.Serializer
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
-import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.util.*
 import no.bekk.dbscheduler.ui.model.*
 import no.bekk.dbscheduler.ui.service.*
 import no.bekk.dbscheduler.ui.util.Caching
@@ -20,8 +20,8 @@ data class DbSchedulerUIConfiguration(
   var dataSource: DataSource? = null,
   var scheduler: Scheduler? = null,
   var serializer: Serializer = Serializer.DEFAULT_JAVA_SERIALIZER,
-  var logs: LogConfiguration = LogConfiguration(),
-  var enabled: Boolean = false
+  var enabled: Boolean = false,
+  internal var logs: LogConfiguration = LogConfiguration(),
 ) {
   data class LogConfiguration(
     val history: Boolean = false,
@@ -66,17 +66,17 @@ private fun Routing.configureRouting(
 private fun Route.tasks(taskLogic: TaskLogic) {
   route("tasks") {
     get("all") {
-      val params = call.receive<TaskRequestParams>()
+      val params = call.receiveParametersTyped<TaskRequestParams>()
       call.respond(HttpStatusCode.OK, taskLogic.getAllTasks(params))
     }
 
     get("details") {
-      val params = call.receive<TaskDetailsRequestParams>()
+      val params = call.receiveParametersTyped<TaskDetailsRequestParams>()
       call.respond(HttpStatusCode.OK, taskLogic.getTask(params))
     }
 
     get("poll") {
-      val params = call.receive<TaskDetailsRequestParams>()
+      val params = call.receiveParametersTyped<TaskDetailsRequestParams>()
       call.respond(HttpStatusCode.OK, taskLogic.pollTasks(params))
     }
 
@@ -109,12 +109,12 @@ private fun Route.history(
 ) {
   val logLogic = LogLogic(dataSource, config.serializer, caching, config.taskData, config.logs.logTableName, config.logs.logLimit)
   get("logs") {
-    val req = call.receive<TaskDetailsRequestParams>()
+    val req = call.receiveParametersTyped<TaskDetailsRequestParams>()
     logLogic.getLogs(req)
   }
 
   get("poll") {
-    val req = call.receive<TaskDetailsRequestParams>()
+    val req = call.receiveParametersTyped<TaskDetailsRequestParams>()
     logLogic.pollLogs(req)
   }
 }
@@ -123,4 +123,64 @@ private fun Route.config(config: DbSchedulerUIConfiguration) {
   get("config") {
     call.respond(ConfigResponse(config.logs.history))
   }
+}
+
+inline fun <reified T> ApplicationCall.receiveParametersTyped(): T {
+  val map = parameters.flattenEntries().associateBy { it.first }.mapValues { e -> e.value.second }
+  return when (T::class) {
+    TaskRequestParams::class -> toTaskRequestParams(map) as T
+    TaskDetailsRequestParams::class -> toTaskDetailsRequestParams(map) as T
+    else -> throw IllegalArgumentException("Unsupported type")
+  }
+}
+
+fun toTaskDetailsRequestParams(map: Map<String, String>): TaskDetailsRequestParams {
+  val trp = toTaskRequestParams(map)
+  val taskId = map["taskId"]
+  val taskName = map["taskName"]
+  return TaskDetailsRequestParams(
+    trp.filter,
+    trp.pageNumber,
+    trp.size,
+    trp.sorting,
+    trp.isAsc,
+    trp.searchTermTaskName,
+    trp.searchTermTaskInstance,
+    trp.isTaskNameExactMatch,
+    trp.isTaskInstanceExactMatch,
+    trp.startTime,
+    trp.endTime,
+    taskName,
+    taskId,
+    trp.isRefresh
+  )
+}
+
+fun toTaskRequestParams(map: Map<String, String>): TaskRequestParams {
+  val filter = map["filter"]?.let { TaskRequestParams.TaskFilter.valueOf(it) } ?: TaskRequestParams.TaskFilter.ALL
+  val pageNumber = map["pageNumber"]?.toInt() ?: 0
+  val size = map["size"]?.toInt() ?: 10
+  val sorting = map["sorting"]?.let { TaskRequestParams.TaskSort.valueOf(it) } ?: TaskRequestParams.TaskSort.DEFAULT
+  val asc = map["asc"]?.toBoolean() ?: true
+  val searchTermTaskName = map["searchTermTaskName"]
+  val searchTermTaskInstance = map["searchTermTaskInstance"]
+  val taskNameExactMatch = map["taskNameExactMatch"]?.toBoolean() ?: false
+  val taskInstanceExactMatch = map["taskInstanceExactMatch"]?.toBoolean() ?: false
+  val startTime = map["startTime"]?.let { Instant.parse(it) }
+  val endTime = map["endTime"]?.let { Instant.parse(it) }
+  val refresh = map["refresh"]?.toBoolean() ?: true
+  return TaskRequestParams(
+    filter,
+    pageNumber,
+    size,
+    sorting,
+    asc,
+    searchTermTaskName,
+    searchTermTaskInstance,
+    taskNameExactMatch,
+    taskInstanceExactMatch,
+    startTime,
+    endTime,
+    refresh
+  )
 }
