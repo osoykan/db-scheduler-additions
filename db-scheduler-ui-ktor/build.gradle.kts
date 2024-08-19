@@ -6,8 +6,8 @@ plugins {
 tasks.shadowJar {
   isEnableRelocation = true
   relocationPrefix = "io.github.osoykan"
-  relocate("org.springframework.*", "dbscheduler.ktor.org.springframework")
-  relocate("org.springframework.boot.*", "dbscheduler.ktor.org.springframework.boot")
+  relocate("org.springframework", "dbscheduler.ktor.org.springframework")
+  relocate("org.springframework.boot", "dbscheduler.ktor.org.springframework.boot")
 }
 
 tasks.build {
