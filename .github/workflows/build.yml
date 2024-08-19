@@ -30,7 +30,7 @@ jobs:
       - name: Gradle Build and Test
         run: gradle --build-cache --parallel --configuration-cache build test koverXmlReport
 
-      - name: Publish to SNAPSHOT
+      - name: Publish to Maven Central
         run: gradle --no-configuration-cache publish
         env:
           SNAPSHOT: true
