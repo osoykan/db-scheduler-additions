@@ -5,7 +5,9 @@ plugins {
 
 tasks.shadowJar {
   isEnableRelocation = true
-  relocationPrefix = "db.scheduler.ktor"
+  relocationPrefix = "io.github.osoykan"
+  relocate("org.springframework", "dbscheduler.ktor.org.springframework")
+  relocate("org.springframework.boot", "dbscheduler.ktor.org.springframework.boot")
 }
 
 tasks.build {
@@ -13,18 +15,14 @@ tasks.build {
 }
 
 dependencies {
-  implementation(libs.slf4j.api)
   implementation(libs.ktor.server.core)
   implementation(libs.dbScheduler)
   implementation(libs.dbScheduler.ui) {
     exclude(group = "org.springframework", module = "spring-webflux")
     exclude(group = "org.springframework", module = "spring-webmvc")
-//    exclude(group = "org.springframework", module = "spring-web")
     exclude(group = "org.springframework", module = "spring-tx")
-//    exclude(group = "org.springframework", module = "spring-jdbc")
     exclude(group = "org.springframework", module = "spring-jcl")
     exclude(group = "org.springframework", module = "spring-expressions")
-//    exclude(group = "org.springframework", module = "spring-core")
     exclude(group = "org.springframework", module = "spring-context")
     exclude(group = "org.springframework", module = "spring-beans")
     exclude(group = "org.springframework", module = "spring-aop")
@@ -35,7 +33,6 @@ dependencies {
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-thymeleaf")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter-json")
     exclude(group = "org.springframework.boot", module = "spring-boot-starter")
-//    exclude(group = "org.springframework.boot", module = "spring-boot-starter-jdbc")
   }
 }
 
