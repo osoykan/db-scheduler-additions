@@ -1,0 +1,41 @@
+name: Build
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+    
+    steps:
+      - name: Configure JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+
+      - name: Gradle Build and Test
+        run: gradle --build-cache --parallel --configuration-cache build test koverXmlReport
+
+      - name: Publish to SNAPSHOT
+        run: gradle --no-configuration-cache publish
+        env:
+          SNAPSHOT: true
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.gpg_private_key }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.gpg_passphrase }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ossrh_username }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ossrh_pass }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

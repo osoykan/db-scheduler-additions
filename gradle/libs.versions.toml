@@ -1,0 +1,126 @@
+[versions]
+kotlin = "2.0.10"
+kotlinx = "1.8.1"
+couchbase-client = "3.7.2"
+couchbase-client-kotlin = "1.4.2"
+jackson = "2.17.2"
+arrow = "1.2.4"
+micrometer-prometheus = "1.13.3"
+detekt = "1.23.6"
+dbscheduler = "14.0.3"
+slf4j = "2.0.16"
+ktor = "2.3.12"
+koin = "3.5.6"
+
+## test
+junit = "5.11.0"
+kotest = "5.9.1"
+stove = "1.0.0-SNAPSHOT"
+mockk = "1.13.12"
+
+[libraries]
+# Kotlin
+kotlin-stdlib-jdk8 = { module = "org.jetbrains.kotlin:kotlin-stdlib-jdk8", version.ref = "kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+kotlinx-coroutines-reactor = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-reactor", version.ref = "kotlinx" }
+kotlinx-coroutines-reactive = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-reactive", version.ref = "kotlinx" }
+kotlinx-coroutines-jdk8 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8", version.ref = "kotlinx" }
+kotlinx-coroutines-slf4j = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j", version.ref = "kotlinx" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx" }
+
+# Arrow
+arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
+arrow-continuations = { module = "io.arrow-kt:arrow-continuations", version.ref = "arrow" }
+arrow-fx-coroutines = { module = "io.arrow-kt:arrow-fx-coroutines", version.ref = "arrow" }
+arrow-resilience = { module = "io.arrow-kt:arrow-resilience", version.ref = "arrow" }
+arrow-eval = { module = "io.arrow-kt:arrow-eval", version.ref = "arrow" }
+arrow-atomic = { module = "io.arrow-kt:arrow-atomic", version.ref = "arrow" }
+arrow-collectors = { module = "io.arrow-kt:arrow-collectors", version.ref = "arrow" }
+arrow-fx-stm = { module = "io.arrow-kt:arrow-fx-stm", version.ref = "arrow" }
+arrow-core-serialization = { module = "io.arrow-kt:arrow-core-serialization", version.ref = "arrow" }
+arrow-cache4k = { module = "io.arrow-kt:arrow-cache4k", version.ref = "arrow" }
+
+# Couchbase
+couchbase-client = { module = "com.couchbase.client:java-client", version.ref = "couchbase-client" }
+couchbase-client-kotlin = { module = "com.couchbase.client:kotlin-client", version.ref = "couchbase-client-kotlin" }
+
+# Jackson
+jackson-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
+jackson-afterburner = { module = "com.fasterxml.jackson.module:jackson-module-afterburner", version.ref = "jackson" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
+zalando-problem-jackson = { module = "org.zalando:jackson-datatype-problem", version = "0.27.1" }
+
+# Logging
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.7" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
+
+# koin
+koin = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
+
+# Ktor
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-config-yml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-serialization-jackson-json = { module = "io.ktor:ktor-serialization-jackson", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-statuspages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-callLogging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-autoHeadResponse = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
+ktor-server-cachingHeaders = { module = "io.ktor:ktor-server-caching-headers", version.ref = "ktor" }
+ktor-server-callId = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor" }
+ktor-server-conditionalHeaders = { module = "io.ktor:ktor-server-conditional-headers", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", version.ref = "ktor" }
+ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor" }
+ktor-swagger-ui = { module = "io.github.smiley4:ktor-swagger-ui", version = "3.3.0" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-plugins-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+
+# Others
+detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
+dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
+dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "3.2.0" }
+micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
+
+## Testing
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx" }
+junit = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
+kotest-datatests = { module = "io.kotest:kotest-framework-datatest-jvm", version.ref = "kotest" }
+kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
+stove-testing = { module = "com.trendyol:stove-testing-e2e", version.ref = "stove" }
+stove-spring-testing = { module = "com.trendyol:stove-spring-testing-e2e", version.ref = "stove" }
+stove-ktor-testing = { module = "com.trendyol:stove-ktor-testing-e2e", version.ref = "stove" }
+stove-spring-testing-kafka = { module = "com.trendyol:stove-spring-testing-e2e-kafka", version.ref = "stove" }
+stove-testing-http = { module = "com.trendyol:stove-testing-e2e-http", version.ref = "stove" }
+stove-testing-elasticsearch = { module = "com.trendyol:stove-testing-e2e-elasticsearch", version.ref = "stove" }
+stove-testing-rdbms = { module = "com.trendyol:stove-testing-e2e-rdbms", version.ref = "stove" }
+stove-testing-couchbase = { module = "com.trendyol:stove-testing-e2e-couchbase", version.ref = "stove" }
+stove-testing-wiremock = { module = "com.trendyol:stove-testing-e2e-wiremock", version.ref = "stove" }
+stove-testing-kafka = { module = "com.trendyol:stove-testing-e2e-kafka", version.ref = "stove" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }
+hikari = { module = "com.zaxxer:HikariCP", version = "5.1.0" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.3" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.1" }
+
+[plugins]
+testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
+spotless = { id = "com.diffplug.spotless", version = "6.25.0" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.8.3" }
+shadow = { id = "com.gradleup.shadow", version = "8.3.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.29.0" }
