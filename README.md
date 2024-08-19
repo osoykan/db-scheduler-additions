@@ -7,7 +7,7 @@ This is a WIP project to add support for additional databases and a Ktor UI plug
 This package uses [db-scheduler-ui](https://github.com/bekk/db-scheduler-ui) and provides a ktor plugin to interact with.
 
 ```kotlin
-implementation("io.github.osoykan:db-scheduler-ktor:$version")
+implementation("io.github.osoykan:db-scheduler-ui-ktor:$version")
 ```
 
 ```kotlin
