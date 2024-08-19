@@ -1,18 +1,5 @@
 plugins {
   kotlin("jvm") version libs.versions.kotlin
-  alias(libs.plugins.shadow)
-}
-
-tasks.shadowJar {
-  isEnableRelocation = true
-  relocate("org.springframework", "shadow.org.springframework")
-  relocate("org.springframework.boot", "shadow.org.springframework.boot")
-}
-
-tasks.jar {
-  dependsOn(tasks.shadowJar)
-  from(zipTree(tasks.shadowJar.get().archiveFile))
-  duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
 dependencies {
