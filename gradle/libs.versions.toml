@@ -79,7 +79,7 @@ ktor-server-conditionalHeaders = { module = "io.ktor:ktor-server-conditional-hea
 ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
 ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", version.ref = "ktor" }
 ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor" }
-ktor-swagger-ui = { module = "io.github.smiley4:ktor-swagger-ui", version = "3.2.0" }
+ktor-swagger-ui = { module = "io.github.smiley4:ktor-swagger-ui", version = "3.3.0" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
@@ -115,7 +115,7 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }
 hikari = { module = "com.zaxxer:HikariCP", version = "5.1.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.3" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.0" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.1" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
