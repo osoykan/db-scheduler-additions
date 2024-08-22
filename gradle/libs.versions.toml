@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.0.10"
+kotlin = "2.0.20"
 kotlinx = "1.8.1"
 couchbase-client = "3.7.2"
 couchbase-client-kotlin = "1.4.2"
