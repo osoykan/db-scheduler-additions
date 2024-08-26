@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.Clock
+import com.github.kagkarlsson.scheduler.event.*
 import com.github.kagkarlsson.scheduler.logging.LogLevel
 import com.github.kagkarlsson.scheduler.serializer.JacksonSerializer
 import com.github.kagkarlsson.scheduler.stats.*
@@ -32,37 +33,37 @@ class CouchbaseScheduler(
   executeDueWaiter: Waiter,
   heartbeatInterval: Duration,
   numberOfMissedHeartbeatsBeforeDead: Int,
-  enableImmediateExecution: Boolean,
-  statsRegistry: StatsRegistry,
   pollingStrategy: PollingStrategyConfig,
   deleteUnresolvedAfter: Duration,
   shutdownMaxWait: Duration,
   onStartup: List<OnStartup>,
+  schedulerListeners: List<SchedulerListener> = listOf(),
+  interceptors: List<ExecutionInterceptor> = listOf(),
   logLevel: LogLevel = LogLevel.INFO,
   logStackTrace: Boolean = false,
   private val onStop: () -> Unit = {}
 ) : Scheduler(
-    clock,
-    schedulerTaskRepository,
-    clientTaskRepository,
-    taskResolver,
-    threadPoolSize,
-    executorService,
-    schedulerName,
-    executeDueWaiter,
-    heartbeatInterval.toJavaDuration(),
-    numberOfMissedHeartbeatsBeforeDead,
-    enableImmediateExecution,
-    statsRegistry,
-    pollingStrategy,
-    deleteUnresolvedAfter.toJavaDuration(),
-    shutdownMaxWait.toJavaDuration(),
-    logLevel,
-    logStackTrace,
-    onStartup,
-    executorService,
-    houseKeeperExecutorService
-  ) {
+  clock,
+  schedulerTaskRepository,
+  clientTaskRepository,
+  taskResolver,
+  threadPoolSize,
+  executorService,
+  schedulerName,
+  executeDueWaiter,
+  heartbeatInterval.toJavaDuration(),
+  numberOfMissedHeartbeatsBeforeDead,
+  schedulerListeners.toMutableList(),
+  interceptors.toMutableList(),
+  pollingStrategy,
+  deleteUnresolvedAfter.toJavaDuration(),
+  shutdownMaxWait.toJavaDuration(),
+  logLevel,
+  logStackTrace,
+  onStartup,
+  executorService,
+  houseKeeperExecutorService
+) {
   override fun stop() {
     super.stop()
     onStop()
@@ -136,11 +137,10 @@ class CouchbaseScheduler(
         logLevel = LogLevel.TRACE,
         onStartup = emptyList(),
         logStackTrace = true,
-        statsRegistry = statsRegistry,
         pollingStrategy = PollingStrategyConfig.DEFAULT_SELECT_FOR_UPDATE,
         shutdownMaxWait = 1.minutes,
-        enableImmediateExecution = true,
-        numberOfMissedHeartbeatsBeforeDead = 3
+        numberOfMissedHeartbeatsBeforeDead = 3,
+        schedulerListeners = listOf(StatsRegistryAdapter(statsRegistry)),
       ) {
         scope.cancel()
         dispatcher.cancel()
