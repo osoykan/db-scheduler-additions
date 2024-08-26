@@ -11,6 +11,7 @@ dbscheduler = "14.1.0"
 slf4j = "2.0.16"
 ktor = "2.3.12"
 koin = "3.5.6"
+mongodb = "5.1.3"
 
 ## test
 junit = "5.11.0"
@@ -91,6 +92,8 @@ detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", 
 dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
 dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "3.2.0" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
+mongodb-bson-kotlin = { module = "org.mongodb:bson-kotlin", version.ref = "mongodb" }
+mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
 
 ## Testing
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx" }
@@ -110,6 +113,7 @@ stove-testing-rdbms = { module = "com.trendyol:stove-testing-e2e-rdbms", version
 stove-testing-couchbase = { module = "com.trendyol:stove-testing-e2e-couchbase", version.ref = "stove" }
 stove-testing-wiremock = { module = "com.trendyol:stove-testing-e2e-wiremock", version.ref = "stove" }
 stove-testing-kafka = { module = "com.trendyol:stove-testing-e2e-kafka", version.ref = "stove" }
+stove-testing-mongo = { module = "com.trendyol:stove-testing-e2e-mongodb", version.ref = "stove" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }

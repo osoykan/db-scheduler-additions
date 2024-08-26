@@ -1,0 +1,36 @@
+<configuration>
+    <property scope="context" name="logFormat" value="${LOG_FORMAT:-DEFAULT}"/>
+
+    <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.JsonEncoder"/>
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %white([%t]) %highlight(%-5level) %magenta(%c{1}) %cyan(trace.id:%X{traceId} version:%X{version}) -
+                %yellow(%m) %n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <root level="TRACE">
+        <if condition='property("logFormat").contains("JSON")'>
+            <then>
+                <appender-ref ref="JSON_STDOUT"/>
+            </then>
+        </if>
+        <if condition='!property("logFormat").contains("JSON")'>
+            <then>
+                <appender-ref ref="STDOUT"/>
+            </then>
+        </if>
+    </root>
+
+    <logger name="io.netty" level="INFO"/>
+    <logger name="io.ktor" level="WARN"/>
+    <logger name="com.github.victools" level="WARN"/>
+    <logger name="io.opentelemetry.extension" level="OFF"/>
+    <logger name="okhttp3.internal" level="OFF"/>
+    <logger name="com.couchbase" level="OFF"/>
+</configuration>
