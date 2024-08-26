@@ -43,27 +43,27 @@ class CouchbaseScheduler(
   logStackTrace: Boolean = false,
   private val onStop: () -> Unit = {}
 ) : Scheduler(
-  clock,
-  schedulerTaskRepository,
-  clientTaskRepository,
-  taskResolver,
-  threadPoolSize,
-  executorService,
-  schedulerName,
-  executeDueWaiter,
-  heartbeatInterval.toJavaDuration(),
-  numberOfMissedHeartbeatsBeforeDead,
-  schedulerListeners.toMutableList(),
-  interceptors.toMutableList(),
-  pollingStrategy,
-  deleteUnresolvedAfter.toJavaDuration(),
-  shutdownMaxWait.toJavaDuration(),
-  logLevel,
-  logStackTrace,
-  onStartup,
-  executorService,
-  houseKeeperExecutorService
-) {
+    clock,
+    schedulerTaskRepository,
+    clientTaskRepository,
+    taskResolver,
+    threadPoolSize,
+    executorService,
+    schedulerName,
+    executeDueWaiter,
+    heartbeatInterval.toJavaDuration(),
+    numberOfMissedHeartbeatsBeforeDead,
+    schedulerListeners.toMutableList(),
+    interceptors.toMutableList(),
+    pollingStrategy,
+    deleteUnresolvedAfter.toJavaDuration(),
+    shutdownMaxWait.toJavaDuration(),
+    logLevel,
+    logStackTrace,
+    onStartup,
+    executorService,
+    houseKeeperExecutorService
+  ) {
   override fun stop() {
     super.stop()
     onStop()
@@ -140,7 +140,7 @@ class CouchbaseScheduler(
         pollingStrategy = PollingStrategyConfig.DEFAULT_SELECT_FOR_UPDATE,
         shutdownMaxWait = 1.minutes,
         numberOfMissedHeartbeatsBeforeDead = 3,
-        schedulerListeners = listOf(StatsRegistryAdapter(statsRegistry)),
+        schedulerListeners = listOf(StatsRegistryAdapter(statsRegistry))
       ) {
         scope.cancel()
         dispatcher.cancel()
