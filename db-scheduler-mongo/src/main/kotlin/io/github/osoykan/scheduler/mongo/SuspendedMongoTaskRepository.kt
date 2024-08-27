@@ -8,32 +8,14 @@ import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
 import com.mongodb.client.model.*
-import com.mongodb.kotlin.client.coroutine.*
+import com.mongodb.kotlin.client.coroutine.MongoCollection
 import kotlinx.coroutines.flow.*
+import org.bson.conversions.Bson
 import org.slf4j.LoggerFactory
 import java.time.*
 import java.util.function.*
 import kotlin.jvm.optionals.getOrElse
 
-data class Mongo(
-  val client: MongoClient,
-  val database: String,
-  val collection: String = "scheduler"
-) {
-  private val databaseOps = client.getDatabase(database)
-
-  suspend fun ensurePreferredCollectionExists() {
-    val exists = databaseOps.listCollectionNames().toList().any { it == collection }
-    if (exists) {
-      return
-    }
-    databaseOps.createCollection(collection)
-  }
-
-  val schedulerCollection: MongoCollection<TaskEntity> by lazy { databaseOps.getCollection(collection) }
-}
-
-@Suppress("TooManyFunctions")
 class SuspendedMongoTaskRepository(
   private val clock: Clock,
   private val mongo: Mongo,
@@ -48,12 +30,12 @@ class SuspendedMongoTaskRepository(
     execution: SchedulableInstance<*>
   ): Boolean = getOption(execution.documentId())
     .map {
-      logger.info("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
+      logger.debug("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
       false
     }.recover {
-      val entity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance)).copy(picked = false)
-      collection.insertOne(entity)
-      true
+      val entity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
+        .copy(picked = false)
+      collection.insertOne(entity).wasAcknowledged()
     }.getOrElse { false }
 
   suspend fun getDue(now: Instant, limit: Int): List<Execution> = collection.find(
@@ -120,27 +102,24 @@ class SuspendedMongoTaskRepository(
     limit: Int
   ): List<Execution> {
     val unresolvedCondition = UnresolvedFilter(taskResolver.unresolved)
-    val f = unresolvedCondition.unresolved.map { Filters.ne(TaskEntity::taskName.name, it.taskName) }
     val filter = Filters.and(
       Filters.eq(TaskEntity::picked.name, false),
       Filters.lte(TaskEntity::executionTime.name, now),
-      *f.toTypedArray()
+      unresolvedCondition.asFilter()
     )
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
     return collection.find(filter)
       .limit(limit)
-      .map {
-        toExecution(it)
-      }
+      .map { toExecution(it) }
       .map { execution ->
-        logger.info("Locking task with id {}", execution.documentId())
+        logger.debug("#lockAndFetchGeneric task with id {}", execution.documentId())
         val updated = collection.findOneAndUpdate(
           Filters.and(
             Filters.eq(TaskEntity::identity.name, execution.documentId()),
             Filters.eq(TaskEntity::picked.name, false),
             Filters.lte(TaskEntity::executionTime.name, now),
-            *f.toTypedArray()
+            unresolvedCondition.asFilter()
           ),
           Updates.combine(
             Updates.set(TaskEntity::picked.name, true),
@@ -160,9 +139,7 @@ class SuspendedMongoTaskRepository(
   ): List<Execution> = lockAndFetchGeneric(now, limit)
 
   suspend fun remove(execution: Execution) {
-    Either.catch {
-      collection.deleteOne(Filters.eq("identity", execution.documentId()))
-    }.mapLeft { throw it }
+    collection.deleteOne(Filters.eq("identity", execution.documentId()))
   }
 
   suspend fun reschedule(
@@ -323,12 +300,10 @@ class SuspendedMongoTaskRepository(
     ).toList()
   }
 
-  private suspend fun getOption(id: String): Option<TaskEntity> = Either.catch {
+  private suspend fun getOption(id: String): Option<TaskEntity> =
     collection.find(Filters.eq(TaskEntity::identity.name, id))
       .firstOrNull()
       .toOption()
-  }.mapLeft { throw it }
-    .merge()
 
   private fun toEntity(execution: Execution, metadata: Map<String, Any> = mapOf()): TaskEntity = TaskEntity(
     taskName = execution.taskName,
@@ -354,8 +329,8 @@ class SuspendedMongoTaskRepository(
     return Execution(entity.executionTime, taskInstance)
   }
 
-  private class UnresolvedFilter(val unresolved: List<UnresolvedTask>) {
-    override fun toString(): String = "taskName not in (${unresolved.joinToString(", ") { "'${it.taskName}'" }})"
+  private class UnresolvedFilter(private val unresolved: List<UnresolvedTask>) {
+    fun asFilter(): Bson = Filters.nin(TaskEntity::taskName.name, unresolved.map { it.taskName })
   }
 
   private fun <T> memoize(original: Supplier<T>): Supplier<T> {
