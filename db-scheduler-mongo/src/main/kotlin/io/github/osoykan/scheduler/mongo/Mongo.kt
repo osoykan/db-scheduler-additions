@@ -13,9 +13,7 @@ data class Mongo(
 
   suspend fun ensureCollectionExists() {
     val exists = databaseOps.listCollectionNames().toList().any { it == collection }
-    if (exists) {
-      return
-    }
+    if (exists) return
     databaseOps.createCollection(collection)
   }
 }
