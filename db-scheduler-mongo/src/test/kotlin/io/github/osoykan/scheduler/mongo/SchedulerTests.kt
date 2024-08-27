@@ -137,10 +137,11 @@ class SchedulerTests : FunSpec({
     val scheduler1 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 1", fixedThreadPoolSize = 10)
     val scheduler2 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 2", fixedThreadPoolSize = 10)
     val scheduler3 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 3", fixedThreadPoolSize = 15)
-    scheduler1.start()
-    scheduler2.start()
-    scheduler3.start()
-
+    awaitAll(
+      async { scheduler1.start() },
+      async { scheduler2.start() },
+      async { scheduler3.start() }
+    )
     eventually(30.seconds) {
       executionCount.get() shouldBe 200
       executionCount.get() shouldNotBeGreaterThan 200
