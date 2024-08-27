@@ -20,9 +20,10 @@ import java.util.*
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
+@ExperimentalKotest
 class TestConfig : AbstractProjectConfig() {
-  @ExperimentalKotest
-  override val concurrentTests: Int = 10
+  override val parallelism: Int = Runtime.getRuntime().availableProcessors()
+  override val concurrentTests: Int = Runtime.getRuntime().availableProcessors()
 }
 
 class SchedulerTests : FunSpec({
@@ -57,17 +58,16 @@ class SchedulerTests : FunSpec({
 
     var invoked = 0
     val oneTimeTask = Tasks.oneTime("one-time-task")
-      .execute { _, _ ->
-        invoked++
-        println("Executing one-time task")
-      }
+      .execute { _, _ -> invoked++ }
 
-    val scheduler = MongoScheduler.create(testMongo, listOf(oneTimeTask), name = testCase.name.testName.take(10))
+    val schedulerName = testCase.name.testName.take(10)
+    val scheduler = MongoScheduler.create(testMongo, listOf(oneTimeTask), name = schedulerName)
     scheduler.start()
     scheduler.schedule(oneTimeTask.instance("1"), Instant.now())
 
     eventually(10.seconds) {
       invoked shouldBe 1
+      invoked shouldNotBeGreaterThan 1
     }
 
     scheduler.stop()
@@ -83,7 +83,8 @@ class SchedulerTests : FunSpec({
     val task = Tasks.oneTime("50Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10))
+    val schedulerName = testCase.name.testName.take(10)
+    val scheduler = MongoScheduler.create(testMongo, listOf(task), name = schedulerName)
     scheduler.start()
 
     val time = Instant.now()
@@ -101,14 +102,13 @@ class SchedulerTests : FunSpec({
 
     data class TestTaskData(val name: String)
 
+    val schedulerName = testCase.name.testName.take(10)
     val executionCount = AtomicInt(0)
     val task = Tasks.recurring("A Recurring Task", Schedules.fixedDelay(2.seconds.toJavaDuration()), TestTaskData::class.java)
       .initialData(TestTaskData("test"))
-      .execute { _, _ ->
-        executionCount.incrementAndGet()
-      }
+      .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = MongoScheduler.create(testMongo, startupTasks = listOf(task), name = testCase.name.testName.take(10))
+    val scheduler = MongoScheduler.create(testMongo, startupTasks = listOf(task), name = schedulerName)
     scheduler.start()
 
     eventually(10.seconds) {
@@ -127,7 +127,8 @@ class SchedulerTests : FunSpec({
     val task = Tasks.oneTime("200Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = MongoScheduler.create(testMongo, name = testCase.name.testName.take(10))
+    val schedulerName = testCase.name.testName.take(10)
+    val scheduler = MongoScheduler.create(testMongo, name = schedulerName)
     val amount = 200
     val time = Instant.now()
     val tasks = (1..amount)
@@ -135,9 +136,9 @@ class SchedulerTests : FunSpec({
       tasks.map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
     }
 
-    val scheduler1 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 1", fixedThreadPoolSize = 10)
-    val scheduler2 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 2", fixedThreadPoolSize = 10)
-    val scheduler3 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 3", fixedThreadPoolSize = 15)
+    val scheduler1 = MongoScheduler.create(testMongo, listOf(task), name = schedulerName + "racer 1", fixedThreadPoolSize = 10)
+    val scheduler2 = MongoScheduler.create(testMongo, listOf(task), name = schedulerName + "racer 2", fixedThreadPoolSize = 10)
+    val scheduler3 = MongoScheduler.create(testMongo, listOf(task), name = schedulerName + "racer 3", fixedThreadPoolSize = 15)
     awaitAll(
       async { scheduler1.start() },
       async { scheduler2.start() },
