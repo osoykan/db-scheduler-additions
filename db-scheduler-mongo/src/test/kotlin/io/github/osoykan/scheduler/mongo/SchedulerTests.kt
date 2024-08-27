@@ -53,7 +53,7 @@ class SchedulerTests : FunSpec({
 
   test("should work") {
     val testMongo = mongo.copy(collection = testCase.name.testName)
-      .also { it.ensurePreferredCollectionExists() }
+      .also { it.ensureCollectionExists() }
 
     var invoked = 0
     val oneTimeTask = Tasks.oneTime("one-time-task")
@@ -75,7 +75,7 @@ class SchedulerTests : FunSpec({
 
   test("schedule 50 tasks") {
     val testMongo = mongo.copy(collection = testCase.name.testName)
-      .also { it.ensurePreferredCollectionExists() }
+      .also { it.ensureCollectionExists() }
 
     data class TestTaskData(val name: String)
 
@@ -97,7 +97,7 @@ class SchedulerTests : FunSpec({
 
   test("Recurring Task") {
     val testMongo = mongo.copy(collection = testCase.name.testName)
-      .also { it.ensurePreferredCollectionExists() }
+      .also { it.ensureCollectionExists() }
 
     data class TestTaskData(val name: String)
 
@@ -119,7 +119,7 @@ class SchedulerTests : FunSpec({
 
   test("multiple schedulers racing for oneTimeTasks") {
     val testMongo = mongo.copy(collection = testCase.name.testName)
-      .also { it.ensurePreferredCollectionExists() }
+      .also { it.ensureCollectionExists() }
 
     data class TestTaskData(val name: String)
 
