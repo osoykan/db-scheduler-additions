@@ -6,7 +6,7 @@ import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.Clock
 import com.github.kagkarlsson.scheduler.event.*
 import com.github.kagkarlsson.scheduler.logging.LogLevel
-import com.github.kagkarlsson.scheduler.serializer.JacksonSerializer
+import com.github.kagkarlsson.scheduler.serializer.*
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
@@ -97,15 +97,22 @@ class MongoScheduler(
       knownTasks: List<Task<*>> = emptyList(),
       startupTasks: List<Task<*>> = emptyList(),
       name: String = SchedulerName.Hostname().name,
-      objectMapper: ObjectMapper = defaultObjectMapper,
+      serializer: Serializer = JacksonSerializer(defaultObjectMapper),
       fixedThreadPoolSize: Int = 5,
-      corePoolSize: Int = 1
+      corePoolSize: Int = 1,
+      heartbeatInterval: Duration = 2.seconds,
+      executeDue: Duration = 2.seconds,
+      deleteUnresolvedAfter: Duration = 1.seconds,
+      logLevel: LogLevel = LogLevel.TRACE,
+      logStackTrace: Boolean = true,
+      shutdownMaxWait: Duration = 1.minutes,
+      numberOfMissedHeartbeatsBeforeDead: Int = 3,
+      listeners: List<SchedulerListener> = emptyList()
     ): Scheduler {
       val logger = LoggerFactory.getLogger(MongoScheduler::class.java)
       val clock = UtcClock()
       val statsRegistry = MicrometerStatsRegistry(AppMicrometer.registry, knownTasks + startupTasks)
       val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
-      val serializer = JacksonSerializer(objectMapper)
       val executorService = Executors.newFixedThreadPool(fixedThreadPoolSize, NamedThreadFactory("db-scheduler-$name"))
       val houseKeeperExecutorService = Executors.newScheduledThreadPool(
         corePoolSize,
@@ -133,16 +140,16 @@ class MongoScheduler(
         threadPoolSize = corePoolSize,
         executorService = executorService,
         houseKeeperExecutorService = houseKeeperExecutorService,
-        deleteUnresolvedAfter = 1.seconds,
-        executeDueWaiter = Waiter(2.seconds.toJavaDuration()),
-        heartbeatInterval = 2.seconds,
-        logLevel = LogLevel.TRACE,
+        deleteUnresolvedAfter = deleteUnresolvedAfter,
+        executeDueWaiter = Waiter(executeDue.toJavaDuration()),
+        heartbeatInterval = heartbeatInterval,
+        logLevel = logLevel,
         onStartup = startupTasks.filterIsInstance<RecurringTask<*>>(),
-        logStackTrace = true,
+        logStackTrace = logStackTrace,
         pollingStrategy = PollingStrategyConfig.DEFAULT_SELECT_FOR_UPDATE,
-        shutdownMaxWait = 1.minutes,
-        numberOfMissedHeartbeatsBeforeDead = 3,
-        schedulerListeners = listOf(StatsRegistryAdapter(statsRegistry))
+        shutdownMaxWait = shutdownMaxWait,
+        numberOfMissedHeartbeatsBeforeDead = numberOfMissedHeartbeatsBeforeDead,
+        schedulerListeners = listeners + listOf(StatsRegistryAdapter(statsRegistry))
       ) {
         scope.cancel()
         dispatcher.cancel()
