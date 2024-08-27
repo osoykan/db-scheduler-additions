@@ -94,6 +94,8 @@ class SchedulerTests : FunSpec({
       executionCount.get() shouldBe 50
       executionCount.get() shouldNotBeGreaterThan 50
     }
+
+    scheduler.stop()
   }
 
   test("Recurring Task") {
@@ -115,6 +117,8 @@ class SchedulerTests : FunSpec({
       executionCount.get() shouldBe 2
       executionCount.get() shouldNotBeGreaterThan 2
     }
+
+    scheduler.stop()
   }
 
   test("multiple schedulers racing for oneTimeTasks") {
