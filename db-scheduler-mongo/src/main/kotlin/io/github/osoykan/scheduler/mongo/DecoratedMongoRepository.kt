@@ -17,7 +17,7 @@ class DecoratedMongoRepository(
 
   init {
     scope.launch {
-      logger.debug("Creating indexes for CouchbaseTaskRepository")
+      logger.debug("Creating indexes for DecoratedMongoRepository")
       Either.catch { taskRepository.createIndexes() }
         .onRight { logger.debug("Created indexes for CouchbaseTaskRepository") }
         .mapLeft { logger.error("Failed to create indexes for db-scheduler", it) }
@@ -230,7 +230,7 @@ class DecoratedMongoRepository(
 
   override fun getExecution(taskName: String, taskInstanceId: String): Optional<Execution> = runBlocking(scope.coroutineContext) {
     logger.debug("Getting execution for $taskName, $taskInstanceId")
-    Either.catch { taskRepository.getExecution(taskName, taskInstanceId).toOption().asJava() }
+    Either.catch { taskRepository.getExecution(taskName, taskInstanceId).asJava() }
       .onRight { logger.debug("Got execution for $taskName, $taskInstanceId") }
       .mapLeft {
         logger.error("Failed to getExecution for $taskName, $taskInstanceId", it)

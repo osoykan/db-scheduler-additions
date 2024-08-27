@@ -14,7 +14,7 @@
         </encoder>
     </appender>
 
-    <root level="TRACE">
+    <root level="OFF">
         <if condition='property("logFormat").contains("JSON")'>
             <then>
                 <appender-ref ref="JSON_STDOUT"/>
@@ -27,10 +27,19 @@
         </if>
     </root>
 
+    <logger name="io.github.osoykan" level="DEBUG"/>
+    <logger name="com.github.kagkarlsson" level="DEBUG"/>
+
+    <logger name="org.mongodb" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
     <logger name="io.ktor" level="WARN"/>
     <logger name="com.github.victools" level="WARN"/>
     <logger name="io.opentelemetry.extension" level="OFF"/>
     <logger name="okhttp3.internal" level="OFF"/>
     <logger name="com.couchbase" level="OFF"/>
+    <logger name="org.apache.hc" level="OFF"/>
+    <logger name="org.testcontainers" level="OFF"/>
+    <logger name="com.github.dockerjava" level="OFF"/>
+    <logger name="testcontainers" level="OFF"/>
+
 </configuration>

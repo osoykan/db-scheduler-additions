@@ -1,7 +1,6 @@
 package io.github.osoykan.scheduler.mongo
 
 import arrow.core.*
-import arrow.core.raise.option
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.Clock
 import com.github.kagkarlsson.scheduler.TaskResolver.UnresolvedTask
@@ -24,17 +23,14 @@ data class Mongo(
   private val databaseOps = client.getDatabase(database)
 
   suspend fun ensurePreferredCollectionExists() {
-    option {
-      val collection = collection.toOption().bind()
-      val exists = databaseOps.listCollectionNames().toList().any { it == collection }
-      if (exists) {
-        return@option
-      }
-      databaseOps.createCollection(collection)
+    val exists = databaseOps.listCollectionNames().toList().any { it == collection }
+    if (exists) {
+      return
     }
+    databaseOps.createCollection(collection)
   }
 
-  val defaultCollection: MongoCollection<TaskEntity> by lazy { databaseOps.getCollection(collection) }
+  val schedulerCollection: MongoCollection<TaskEntity> by lazy { databaseOps.getCollection(collection) }
 }
 
 @Suppress("TooManyFunctions")
@@ -45,16 +41,9 @@ class SuspendedMongoTaskRepository(
   private val schedulerName: SchedulerName,
   private val serializer: Serializer
 ) {
-  companion object {
-    private const val SCHEDULER_NAME_TAKE = 50
-    private const val SELECT_FROM_WITH_META = "SELECT c.*, { \"cas\": META(c).cas } AS metadata FROM"
-  }
-
   private val logger = LoggerFactory.getLogger(SuspendedMongoTaskRepository::class.java)
-  private val collection: MongoCollection<TaskEntity> by lazy { mongo.defaultCollection }
-  private val client: MongoClient by lazy { mongo.client }
+  private val collection: MongoCollection<TaskEntity> by lazy { mongo.schedulerCollection }
 
-  @Suppress("SwallowedException")
   suspend fun createIfNotExists(
     execution: SchedulableInstance<*>
   ): Boolean = getOption(execution.documentId())
@@ -74,7 +63,6 @@ class SuspendedMongoTaskRepository(
     )
   ).limit(limit).map { toExecution(it) }.toList()
 
-  @Suppress("ThrowsCount")
   suspend fun replace(
     toBeReplaced: Execution,
     newInstance: SchedulableInstance<*>
@@ -276,10 +264,9 @@ class SuspendedMongoTaskRepository(
     return false
   }
 
-  suspend fun getExecution(taskName: String, taskInstanceId: String): Execution =
+  suspend fun getExecution(taskName: String, taskInstanceId: String): Option<Execution> =
     getOption(TaskEntity.documentId(taskName, taskInstanceId))
       .map { toExecution(it) }
-      .getOrElse { throw TaskInstanceException("Task with id $taskName-$taskInstanceId not found", taskName, taskInstanceId) }
 
   suspend fun updateHeartbeat(
     execution: Execution,
@@ -392,5 +379,9 @@ class SuspendedMongoTaskRepository(
         return delegate.get()
       }
     }
+  }
+
+  companion object {
+    private const val SCHEDULER_NAME_TAKE = 50
   }
 }

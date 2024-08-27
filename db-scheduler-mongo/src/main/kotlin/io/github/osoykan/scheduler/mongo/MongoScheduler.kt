@@ -9,6 +9,7 @@ import com.github.kagkarlsson.scheduler.logging.LogLevel
 import com.github.kagkarlsson.scheduler.serializer.JacksonSerializer
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.*
+import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.prometheusmetrics.*
 import kotlinx.coroutines.*
@@ -92,8 +93,9 @@ class MongoScheduler(
     }
 
     fun create(
-      couchbase: Mongo,
+      mongo: Mongo,
       knownTasks: List<Task<*>> = emptyList(),
+      startupTasks: List<Task<*>> = emptyList(),
       name: String = SchedulerName.Hostname().name,
       objectMapper: ObjectMapper = defaultObjectMapper,
       fixedThreadPoolSize: Int = 5,
@@ -101,8 +103,8 @@ class MongoScheduler(
     ): Scheduler {
       val logger = LoggerFactory.getLogger(MongoScheduler::class.java)
       val clock = UtcClock()
-      val statsRegistry = MicrometerStatsRegistry(AppMicrometer.registry, knownTasks)
-      val taskResolver = TaskResolver(statsRegistry, clock, knownTasks)
+      val statsRegistry = MicrometerStatsRegistry(AppMicrometer.registry, knownTasks + startupTasks)
+      val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
       val serializer = JacksonSerializer(objectMapper)
       val executorService = Executors.newFixedThreadPool(fixedThreadPoolSize, NamedThreadFactory("db-scheduler-$name"))
       val houseKeeperExecutorService = Executors.newScheduledThreadPool(
@@ -119,7 +121,7 @@ class MongoScheduler(
           }
       )
       val taskRepository = DecoratedMongoRepository(
-        SuspendedMongoTaskRepository(clock, couchbase, taskResolver, SchedulerName.Fixed(name), serializer),
+        SuspendedMongoTaskRepository(clock, mongo, taskResolver, SchedulerName.Fixed(name), serializer),
         scope
       )
       return MongoScheduler(
@@ -135,7 +137,7 @@ class MongoScheduler(
         executeDueWaiter = Waiter(2.seconds.toJavaDuration()),
         heartbeatInterval = 2.seconds,
         logLevel = LogLevel.TRACE,
-        onStartup = emptyList(),
+        onStartup = startupTasks.filterIsInstance<RecurringTask<*>>(),
         logStackTrace = true,
         pollingStrategy = PollingStrategyConfig.DEFAULT_SELECT_FOR_UPDATE,
         shutdownMaxWait = 1.minutes,

@@ -1,37 +1,35 @@
 package io.github.osoykan.scheduler.mongo
 
+import arrow.atomic.AtomicInt
 import com.github.kagkarlsson.scheduler.task.helper.Tasks
+import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import com.mongodb.*
-import com.mongodb.MongoClientSettings.getDefaultCodecRegistry
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.kotest.assertions.nondeterministic.eventually
+import io.kotest.common.ExperimentalKotest
+import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldNotBeGreaterThan
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.*
 import org.bson.UuidRepresentation
-import org.bson.codecs.configuration.CodecRegistries.*
-import org.bson.codecs.configuration.CodecRegistry
-import org.bson.codecs.pojo.PojoCodecProvider
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 import java.time.Instant
-import kotlin.reflect.KClass
+import java.util.*
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
-class PojoRegistry {
-  private var builder = PojoCodecProvider.builder().automatic(true)
-
-  inline fun <reified T : Any> register(): PojoRegistry = register(T::class)
-
-  fun <T : Any> register(clazz: KClass<T>): PojoRegistry = builder.register(clazz.java).let { this }
-
-  fun build(): CodecRegistry = fromRegistries(
-    getDefaultCodecRegistry(),
-    fromProviders(builder.build())
-  )
+class TestConfig : AbstractProjectConfig() {
+  @ExperimentalKotest
+  override val concurrentTests: Int = 10
 }
 
 class SchedulerTests : FunSpec({
-  test("should work") {
+  lateinit var mongo: Mongo
+  lateinit var client: MongoClient
+  val mongoDbName = "db-scheduler"
+  beforeSpec {
     val mongodb = MongoDBContainer(DockerImageName.parse("mongo:latest")).apply {
       portBindings = listOf("27017:27017")
     }
@@ -46,12 +44,16 @@ class SchedulerTests : FunSpec({
       .readConcern(ReadConcern.MAJORITY)
       .codecRegistry(
         PojoRegistry()
-          .register(TaskEntity::class)
+          .register<TaskEntity>()
           .build()
       )
-    val client = MongoClient.create(settings.build())
-    val mongo = Mongo(client, "scheduler")
-    mongo.ensurePreferredCollectionExists()
+    client = MongoClient.create(settings.build())
+    mongo = Mongo(client, mongoDbName)
+  }
+
+  test("should work") {
+    val testMongo = mongo.copy(collection = testCase.name.testName)
+      .also { it.ensurePreferredCollectionExists() }
 
     var invoked = 0
     val oneTimeTask = Tasks.oneTime("one-time-task")
@@ -60,7 +62,7 @@ class SchedulerTests : FunSpec({
         println("Executing one-time task")
       }
 
-    val scheduler = MongoScheduler.create(mongo, listOf(oneTimeTask))
+    val scheduler = MongoScheduler.create(testMongo, listOf(oneTimeTask), name = testCase.name.testName.take(10))
     scheduler.start()
     scheduler.schedule(oneTimeTask.instance("1"), Instant.now())
 
@@ -69,5 +71,83 @@ class SchedulerTests : FunSpec({
     }
 
     scheduler.stop()
+  }
+
+  test("schedule 50 tasks") {
+    val testMongo = mongo.copy(collection = testCase.name.testName)
+      .also { it.ensurePreferredCollectionExists() }
+
+    data class TestTaskData(val name: String)
+
+    val executionCount = AtomicInt(0)
+    val task = Tasks.oneTime("50Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> executionCount.incrementAndGet() }
+
+    val scheduler = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10))
+    scheduler.start()
+
+    val time = Instant.now()
+
+    (1..50).map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
+    eventually(30.seconds) {
+      executionCount.get() shouldBe 50
+      executionCount.get() shouldNotBeGreaterThan 50
+    }
+  }
+
+  test("Recurring Task") {
+    val testMongo = mongo.copy(collection = testCase.name.testName)
+      .also { it.ensurePreferredCollectionExists() }
+
+    data class TestTaskData(val name: String)
+
+    val executionCount = AtomicInt(0)
+    val task = Tasks.recurring("A Recurring Task", Schedules.fixedDelay(2.seconds.toJavaDuration()), TestTaskData::class.java)
+      .initialData(TestTaskData("test"))
+      .execute { _, _ ->
+        executionCount.incrementAndGet()
+      }
+
+    val scheduler = MongoScheduler.create(testMongo, startupTasks = listOf(task), name = testCase.name.testName.take(10))
+    scheduler.start()
+
+    eventually(10.seconds) {
+      executionCount.get() shouldBe 2
+      executionCount.get() shouldNotBeGreaterThan 2
+    }
+  }
+
+  test("multiple schedulers racing for oneTimeTasks") {
+    val testMongo = mongo.copy(collection = testCase.name.testName)
+      .also { it.ensurePreferredCollectionExists() }
+
+    data class TestTaskData(val name: String)
+
+    val executionCount = AtomicInt(0)
+    val task = Tasks.oneTime("200Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> executionCount.incrementAndGet() }
+
+    val scheduler = MongoScheduler.create(testMongo, name = testCase.name.testName.take(10))
+    val time = Instant.now()
+    val tasks = (1..200)
+    runBlocking {
+      tasks.map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
+    }
+
+    val scheduler1 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 1", fixedThreadPoolSize = 10)
+    val scheduler2 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 2", fixedThreadPoolSize = 10)
+    val scheduler3 = MongoScheduler.create(testMongo, listOf(task), name = testCase.name.testName.take(10) + "racer 3", fixedThreadPoolSize = 15)
+    scheduler1.start()
+    scheduler2.start()
+    scheduler3.start()
+
+    eventually(30.seconds) {
+      executionCount.get() shouldBe 200
+      executionCount.get() shouldNotBeGreaterThan 200
+    }
+
+    scheduler1.stop()
+    scheduler2.stop()
+    scheduler3.stop()
   }
 })
