@@ -128,8 +128,9 @@ class SchedulerTests : FunSpec({
       .execute { _, _ -> executionCount.incrementAndGet() }
 
     val scheduler = MongoScheduler.create(testMongo, name = testCase.name.testName.take(10))
+    val amount = 200
     val time = Instant.now()
-    val tasks = (1..200)
+    val tasks = (1..amount)
     runBlocking {
       tasks.map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
     }
@@ -143,8 +144,8 @@ class SchedulerTests : FunSpec({
       async { scheduler3.start() }
     )
     eventually(30.seconds) {
-      executionCount.get() shouldBe 200
-      executionCount.get() shouldNotBeGreaterThan 200
+      executionCount.get() shouldBe amount
+      executionCount.get() shouldNotBeGreaterThan amount
     }
 
     scheduler1.stop()
