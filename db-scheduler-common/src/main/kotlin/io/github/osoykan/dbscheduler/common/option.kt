@@ -1,4 +1,4 @@
-package io.github.osoykan.scheduler.mongo
+package io.github.osoykan.dbscheduler.common
 
 import arrow.core.Option
 import java.util.*

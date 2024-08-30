@@ -10,6 +10,7 @@ import com.github.kagkarlsson.scheduler.serializer.*
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
+import io.github.osoykan.dbscheduler.common.KTaskRepository
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.prometheusmetrics.*
 import kotlinx.coroutines.*
@@ -127,8 +128,8 @@ class MongoScheduler(
             logger.error("Coroutine failed, context: {}", coroutineContext, throwable)
           }
       )
-      val taskRepository = DecoratedMongoRepository(
-        SuspendedMongoTaskRepository(clock, mongo, taskResolver, SchedulerName.Fixed(name), serializer),
+      val taskRepository = KTaskRepository(
+        MongoTaskRepository(clock, mongo, taskResolver, SchedulerName.Fixed(name), serializer),
         scope
       )
       return MongoScheduler(

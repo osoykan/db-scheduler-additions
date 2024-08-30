@@ -9,7 +9,7 @@ data class Mongo(
   val collection: String = "scheduler"
 ) {
   private val databaseOps = client.getDatabase(database)
-  val schedulerCollection: MongoCollection<TaskEntity> by lazy { databaseOps.getCollection(collection) }
+  val schedulerCollection: MongoCollection<MongoTaskEntity> by lazy { databaseOps.getCollection(collection) }
 
   suspend fun ensureCollectionExists() {
     val exists = databaseOps.listCollectionNames().toList().any { it == collection }

@@ -13,9 +13,11 @@ import com.github.kagkarlsson.scheduler.TaskResolver.UnresolvedTask
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
+import io.github.osoykan.dbscheduler.common.*
 import org.slf4j.LoggerFactory
 import java.time.*
-import java.util.function.*
+import java.util.*
+import java.util.function.Consumer
 import kotlin.time.Duration.Companion.seconds
 
 data class Couchbase(
@@ -44,32 +46,33 @@ data class Couchbase(
 }
 
 @Suppress("TooManyFunctions")
-class SuspendedCouchbaseTaskRepository(
+class CouchbaseTaskRepository(
   private val clock: Clock,
   private val couchbase: Couchbase,
   private val taskResolver: TaskResolver,
   private val schedulerName: SchedulerName,
   private val serializer: Serializer
-) {
+) : CoroutineTaskRepository {
   companion object {
     private const val SCHEDULER_NAME_TAKE = 50
     private const val SELECT_FROM_WITH_META = "SELECT c.*, { \"cas\": META(c).cas } AS metadata FROM"
   }
 
-  private val logger = LoggerFactory.getLogger(SuspendedCouchbaseTaskRepository::class.java)
+  private val logger = LoggerFactory.getLogger(CouchbaseTaskRepository::class.java)
   private val collection: Collection by lazy { couchbase.defaultCollection }
   private val Collection.fullName: String get() = "`${couchbase.bucketName}`.`${scope.name}`.`$name`"
   private val cluster: Cluster by lazy { couchbase.cluster }
 
   @Suppress("SwallowedException")
-  suspend fun createIfNotExists(
+  override suspend fun createIfNotExists(
     execution: SchedulableInstance<*>
   ): Boolean = getOption(execution.documentId())
     .map {
       logger.info("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
       false
     }.recover {
-      val entity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance)).copy(isPicked = false)
+      val entity: CouchbaseTaskEntity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
+        .copy(picked = false)
       try {
         collection.insert(execution.documentId(), Content.binary(serializer.serialize(entity)))
         true
@@ -82,7 +85,7 @@ class SuspendedCouchbaseTaskRepository(
       }
     }.getOrElse { false }
 
-  suspend fun getDue(now: Instant, limit: Int): List<Execution> {
+  override suspend fun getDue(now: Instant, limit: Int): List<Execution> {
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
@@ -90,14 +93,14 @@ class SuspendedCouchbaseTaskRepository(
       append(" ORDER BY c.executionTime")
       append(" LIMIT \$limit")
     }
-    return queryFor<TaskEntity>(
+    return queryFor<CouchbaseTaskEntity>(
       query,
       QueryParameters.named(mapOf("now" to now, "limit" to limit))
     ).map { toExecution(it) }
   }
 
   @Suppress("ThrowsCount")
-  suspend fun replace(
+  override suspend fun replace(
     toBeReplaced: Execution,
     newInstance: SchedulableInstance<*>
   ): Instant {
@@ -108,8 +111,8 @@ class SuspendedCouchbaseTaskRepository(
         Either.catch {
           collection.replace(
             toBeReplaced.documentId(),
-            Content.binary(serializer.serialize(toEntity(newExecution, found.internalMetadata))),
-            cas = found.cas()!!
+            Content.binary(serializer.serialize(toEntity(newExecution, found.metadata))),
+            cas = found.cas()
           )
           newExecutionTime
         }.mapLeft {
@@ -141,7 +144,7 @@ class SuspendedCouchbaseTaskRepository(
       }.getOrElse { error("Task with id ${toBeReplaced.documentId()} not found") }
   }
 
-  suspend fun getScheduledExecutions(
+  override suspend fun getScheduledExecutions(
     filter: ScheduledExecutionsFilter,
     consumer: Consumer<Execution>
   ) {
@@ -157,12 +160,12 @@ class SuspendedCouchbaseTaskRepository(
       append(" ORDER BY c.executionTime")
     }
 
-    queryFor<TaskEntity>(query)
+    queryFor<CouchbaseTaskEntity>(query)
       .map { toExecution(it) }
       .forEach { consumer.accept(it) }
   }
 
-  suspend fun getScheduledExecutions(
+  override suspend fun getScheduledExecutions(
     filter: ScheduledExecutionsFilter,
     taskName: String,
     consumer: Consumer<Execution>
@@ -180,13 +183,13 @@ class SuspendedCouchbaseTaskRepository(
       append(" ORDER BY c.executionTime")
     }
 
-    queryFor<TaskEntity>(
+    queryFor<CouchbaseTaskEntity>(
       query,
       parameters = QueryParameters.named(mapOf("taskName" to taskName))
     ).map { toExecution(it) }.forEach { consumer.accept(it) }
   }
 
-  suspend fun lockAndFetchGeneric(
+  override suspend fun lockAndFetchGeneric(
     now: Instant,
     limit: Int
   ): List<Execution> {
@@ -202,7 +205,7 @@ class SuspendedCouchbaseTaskRepository(
       append(" LIMIT \$limit")
     }
 
-    val candidates = queryFor<TaskEntity>(
+    val candidates = queryFor<CouchbaseTaskEntity>(
       query,
       parameters = QueryParameters.named(
         mapOf(
@@ -219,9 +222,10 @@ class SuspendedCouchbaseTaskRepository(
       logger.info("Locking task with id {}", candidate.documentId())
       getLockAndUpdate(candidate.documentId()) {
         it.copy(
-          isPicked = true,
+          picked = true,
           pickedBy = pickedBy,
-          lastHeartbeat = lastHeartbeat
+          lastHeartbeat = lastHeartbeat,
+          version = it.version + 1
         )
       }
     }.filter { it.isSome() }.mapNotNull { it.getOrNull() }
@@ -236,12 +240,12 @@ class SuspendedCouchbaseTaskRepository(
     return updated.map { toExecution(it).updateToPicked(pickedBy, lastHeartbeat) }
   }
 
-  suspend fun lockAndGetDue(
+  override suspend fun lockAndGetDue(
     now: Instant,
     limit: Int
   ): List<Execution> = lockAndFetchGeneric(now, limit)
 
-  suspend fun remove(execution: Execution) {
+  override suspend fun remove(execution: Execution) {
     Either.catch { collection.remove(execution.documentId()) }
       .mapLeft {
         when (it) {
@@ -251,7 +255,7 @@ class SuspendedCouchbaseTaskRepository(
       }
   }
 
-  suspend fun reschedule(
+  override suspend fun reschedule(
     execution: Execution,
     nextExecutionTime: Instant,
     lastSuccess: Instant?,
@@ -266,7 +270,7 @@ class SuspendedCouchbaseTaskRepository(
     consecutiveFailures
   )
 
-  suspend fun reschedule(
+  override suspend fun reschedule(
     execution: Execution,
     nextExecutionTime: Instant,
     newData: Any,
@@ -283,29 +287,31 @@ class SuspendedCouchbaseTaskRepository(
     lastFailure: Instant?,
     consecutiveFailures: Int
   ): Boolean = getLockAndUpdate(execution.documentId()) {
-    it.copy(
-      isPicked = false,
+    it.copy<CouchbaseTaskEntity>(
+      picked = false,
       pickedBy = null,
       lastHeartbeat = null,
       lastSuccess = lastSuccess,
       lastFailure = lastFailure,
       executionTime = nextExecutionTime,
-      consecutiveFailures = consecutiveFailures
-    ).let { data.map { d -> it.copy(taskData = serializer.serialize(d)) }.getOrElse { it } }
+      consecutiveFailures = consecutiveFailures,
+      version = it.version + 1
+    ).let { data.map { d -> it.copy<CouchbaseTaskEntity>(taskData = serializer.serialize(d)) }.getOrElse { it } }
   }.isSome()
 
-  suspend fun pick(
-    execution: Execution,
+  override suspend fun pick(
+    e: Execution,
     timePicked: Instant
-  ): Option<Execution> = getLockAndUpdate(execution.documentId()) {
+  ): Optional<Execution> = getLockAndUpdate(e.documentId()) {
     it.copy(
-      isPicked = true,
+      picked = true,
       pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE),
+      version = it.version + 1,
       lastHeartbeat = timePicked
     )
-  }.map { toExecution(it) }
+  }.map { toExecution(it) }.asJava()
 
-  suspend fun getDeadExecutions(
+  override suspend fun getDeadExecutions(
     olderThan: Instant
   ): List<Execution> {
     val query = buildString {
@@ -315,11 +321,11 @@ class SuspendedCouchbaseTaskRepository(
       append(" ORDER BY c.lastHeartbeat")
     }
 
-    return queryFor<TaskEntity>(query, QueryParameters.named(mapOf("olderThan" to olderThan)))
+    return queryFor<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("olderThan" to olderThan)))
       .map { toExecution(it) }
   }
 
-  suspend fun updateHeartbeatWithRetry(
+  override suspend fun updateHeartbeatWithRetry(
     execution: Execution,
     newHeartbeat: Instant,
     tries: Int
@@ -335,20 +341,19 @@ class SuspendedCouchbaseTaskRepository(
     return false
   }
 
-  suspend fun getExecution(taskName: String, taskInstanceId: String): Execution {
-    val result = collection.get(TaskEntity.documentId(taskName, taskInstanceId))
-    val taskEntity = serializer.deserialize(TaskEntity::class.java, result.content.bytes)
-    return toExecution(taskEntity)
-  }
+  override suspend fun getExecution(taskName: String, taskInstanceId: String): Optional<Execution> =
+    getOption(TaskEntity.documentId(taskName, taskInstanceId))
+      .map { toExecution(it) }
+      .asJava()
 
-  suspend fun updateHeartbeat(
+  override suspend fun updateHeartbeat(
     execution: Execution,
     heartbeatTime: Instant
   ): Boolean = getLockAndUpdate(execution.documentId()) {
     it.copy(lastHeartbeat = heartbeatTime)
   }.isSome()
 
-  suspend fun getExecutionsFailingLongerThan(interval: Duration): List<Execution> {
+  override suspend fun getExecutionsFailingLongerThan(interval: Duration): List<Execution> {
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
@@ -356,11 +361,11 @@ class SuspendedCouchbaseTaskRepository(
       append(" OR (c.lastFailure IS NOT NULL AND c.lastSuccess < \$boundary)")
     }
     val boundary = clock.now().minus(interval)
-    return queryFor<TaskEntity>(query, QueryParameters.named(mapOf("boundary" to boundary)))
+    return queryFor<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("boundary" to boundary)))
       .map { toExecution(it) }
   }
 
-  suspend fun removeExecutions(taskName: String): Int {
+  override suspend fun removeExecutions(taskName: String): Int {
     val query = buildString {
       append("DELETE FROM")
       append(" ${collection.fullName} c")
@@ -376,11 +381,11 @@ class SuspendedCouchbaseTaskRepository(
     return result
   }
 
-  fun verifySupportsLockAndFetch() {
+  override suspend fun verifySupportsLockAndFetch() {
     logger.info("Couchbase supports locking with #getAndLock")
   }
 
-  suspend fun createIndexes() {
+  override suspend fun createIndexes() {
     val indexes = mapOf(
       "idx_is_picked" to suspend {
         collection.queryIndexes.createIndex(
@@ -430,7 +435,7 @@ class SuspendedCouchbaseTaskRepository(
     .rows
     .mapNotNull { serializer.deserialize(T::class.java, it.content) }
 
-  private suspend fun getOption(id: String): Option<TaskEntity> =
+  private suspend fun getOption(id: String): Option<CouchbaseTaskEntity> =
     Either.catch { collection.get(id) }
       .mapLeft {
         when (it) {
@@ -438,7 +443,7 @@ class SuspendedCouchbaseTaskRepository(
           else -> throw it
         }
       }.map { result ->
-        val entity = result.contentAs<TaskEntity>()
+        val entity = result.contentAs<CouchbaseTaskEntity>()
         entity.cas(result.cas)
         entity
       }.getOrNone()
@@ -446,14 +451,14 @@ class SuspendedCouchbaseTaskRepository(
   private suspend fun getLockOption(
     id: String,
     duration: kotlin.time.Duration = 10.seconds
-  ): Option<TaskEntity> = Either.catch { collection.getAndLock(id, duration) }
+  ): Option<CouchbaseTaskEntity> = Either.catch { collection.getAndLock(id, duration) }
     .mapLeft {
       when (it) {
         is DocumentNotFoundException -> None
         else -> throw it
       }
     }.map { result ->
-      val entity = result.contentAs<TaskEntity>()
+      val entity = result.contentAs<CouchbaseTaskEntity>()
       entity.cas(result.cas)
       entity
     }.getOrNone()
@@ -461,12 +466,12 @@ class SuspendedCouchbaseTaskRepository(
   private suspend fun getLockAndUpdate(
     id: String,
     duration: kotlin.time.Duration = 10.seconds,
-    block: (TaskEntity) -> TaskEntity
-  ): Option<TaskEntity> = Either.catch {
+    block: (CouchbaseTaskEntity) -> CouchbaseTaskEntity
+  ): Option<CouchbaseTaskEntity> = Either.catch {
     getLockOption(id, duration)
       .map(block)
       .map { updated ->
-        val res = collection.replace(id, Content.binary(serializer.serialize(updated)), cas = updated.cas()!!)
+        val res = collection.replace(id, Content.binary(serializer.serialize(updated)), cas = updated.cas())
         Pair(updated, res)
       }
   }.map { o -> o.map { it.first } }
@@ -478,20 +483,21 @@ class SuspendedCouchbaseTaskRepository(
       }
     }.merge()
 
-  private fun toEntity(execution: Execution, metadata: Map<String, Any> = mapOf()): TaskEntity = TaskEntity(
+  private fun toEntity(execution: Execution, metadata: Map<String, Any> = mapOf()): CouchbaseTaskEntity = CouchbaseTaskEntity(
     taskName = execution.taskName,
     taskInstance = execution.taskInstance.id,
     taskData = serializer.serialize(execution.taskInstance.data),
     executionTime = execution.executionTime,
-    isPicked = execution.picked,
+    picked = execution.picked,
     pickedBy = execution.pickedBy,
     lastFailure = execution.lastFailure,
     lastSuccess = execution.lastSuccess,
     lastHeartbeat = execution.lastHeartbeat,
+    version = execution.version,
     consecutiveFailures = execution.consecutiveFailures
   ).apply { metadata.forEach { (key, value) -> setMetadata(key, value) } }
 
-  private fun toExecution(entity: TaskEntity): Execution {
+  private fun toExecution(entity: CouchbaseTaskEntity): Execution {
     val task = taskResolver.resolve(entity.taskName)
     val dataSupplier = memoize {
       task.map { serializer.deserialize(it.dataClass, entity.taskData) }.orElse(null)
@@ -503,28 +509,5 @@ class SuspendedCouchbaseTaskRepository(
 
   private class UnresolvedFilter(val unresolved: List<UnresolvedTask>) {
     override fun toString(): String = "taskName not in (${unresolved.joinToString(", ") { "'${it.taskName}'" }})"
-  }
-
-  private fun <T> memoize(original: Supplier<T>): Supplier<T> {
-    return object : Supplier<T> {
-      private var delegate: Supplier<T> = Supplier { firstTime() }
-
-      @Volatile
-      private var initialized = false
-
-      override fun get(): T {
-        return delegate.get()
-      }
-
-      @Synchronized
-      private fun firstTime(): T {
-        if (!initialized) {
-          val value = original.get()
-          delegate = Supplier { value }
-          initialized = true
-        }
-        return delegate.get()
-      }
-    }
   }
 }

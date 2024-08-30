@@ -45,7 +45,7 @@ class SchedulerTests : FunSpec({
       .readConcern(ReadConcern.MAJORITY)
       .codecRegistry(
         PojoRegistry()
-          .register<TaskEntity>()
+          .register<MongoTaskEntity>()
           .build()
       )
     client = MongoClient.create(settings.build())

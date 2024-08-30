@@ -9,6 +9,7 @@ import com.github.kagkarlsson.scheduler.logging.LogLevel
 import com.github.kagkarlsson.scheduler.serializer.JacksonSerializer
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.*
+import io.github.osoykan.dbscheduler.common.KTaskRepository
 import io.micrometer.core.instrument.Metrics
 import io.micrometer.prometheusmetrics.*
 import kotlinx.coroutines.*
@@ -118,8 +119,8 @@ class CouchbaseScheduler(
             logger.error("Coroutine failed, context: {}", coroutineContext, throwable)
           }
       )
-      val taskRepository = DecoratedCouchbaseTaskRepository(
-        SuspendedCouchbaseTaskRepository(clock, couchbase, taskResolver, SchedulerName.Fixed(name), serializer),
+      val taskRepository = KTaskRepository(
+        CouchbaseTaskRepository(clock, couchbase, taskResolver, SchedulerName.Fixed(name), serializer),
         scope
       )
       return CouchbaseScheduler(

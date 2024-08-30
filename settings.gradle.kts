@@ -4,6 +4,7 @@ rootProject.name = "db-scheduler-additions"
 
 include(
   "db-scheduler-couchbase",
+  "db-scheduler-common",
   "db-scheduler-mongo",
   "db-scheduler-ui-ktor",
   "examples",

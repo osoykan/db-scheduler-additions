@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+  implementation(projects.dbSchedulerCommon)
   implementation(libs.micrometer.prometheus)
   implementation(libs.mongodb.kotlin.coroutine)
   implementation(libs.mongodb.bson.kotlin)

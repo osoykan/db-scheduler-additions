@@ -1,4 +1,4 @@
-package io.github.osoykan.scheduler.mongo
+package io.github.osoykan.dbscheduler.common
 
 import arrow.core.*
 import com.github.kagkarlsson.scheduler.*
@@ -9,11 +9,11 @@ import java.time.*
 import java.util.*
 import java.util.function.Consumer
 
-class DecoratedMongoRepository(
-  private val taskRepository: SuspendedMongoTaskRepository,
+class KTaskRepository(
+  private val taskRepository: CoroutineTaskRepository,
   private val scope: CoroutineScope
 ) : TaskRepository {
-  private val logger = LoggerFactory.getLogger(DecoratedMongoRepository::class.java)
+  private val logger = LoggerFactory.getLogger(KTaskRepository::class.java)
 
   init {
     scope.launch {
@@ -174,12 +174,12 @@ class DecoratedMongoRepository(
       }.merge()
   }
 
-  override fun pick(execution: Execution, timePicked: Instant): Optional<Execution> = runBlocking(scope.coroutineContext) {
-    logger.debug("Picking for {}, {}", execution, timePicked)
-    Either.catch { taskRepository.pick(execution, timePicked).asJava() }
-      .onRight { logger.debug("Picked for execution {}, lastHeartbeat:{}", execution, timePicked) }
+  override fun pick(e: Execution, timePicked: Instant): Optional<Execution> = runBlocking(scope.coroutineContext) {
+    logger.debug("Picking for {}, {}", e, timePicked)
+    Either.catch { taskRepository.pick(e, timePicked) }
+      .onRight { logger.debug("Picked for execution {}, lastHeartbeat:{}", e, timePicked) }
       .mapLeft {
-        logger.error("Failed to pick for $execution, $timePicked", it)
+        logger.error("Failed to pick for $e, $timePicked", it)
         throw it
       }.merge()
   }
@@ -230,7 +230,7 @@ class DecoratedMongoRepository(
 
   override fun getExecution(taskName: String, taskInstanceId: String): Optional<Execution> = runBlocking(scope.coroutineContext) {
     logger.debug("Getting execution for $taskName, $taskInstanceId")
-    Either.catch { taskRepository.getExecution(taskName, taskInstanceId).asJava() }
+    Either.catch { taskRepository.getExecution(taskName, taskInstanceId) }
       .onRight { logger.debug("Got execution for $taskName, $taskInstanceId") }
       .mapLeft {
         logger.error("Failed to getExecution for $taskName, $taskInstanceId", it)
