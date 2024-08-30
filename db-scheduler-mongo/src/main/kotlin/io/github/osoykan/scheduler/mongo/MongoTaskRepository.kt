@@ -4,7 +4,7 @@ import arrow.core.*
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.Clock
 import com.github.kagkarlsson.scheduler.TaskResolver.UnresolvedTask
-import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException
+import com.github.kagkarlsson.scheduler.exceptions.*
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
 import com.mongodb.client.model.*
@@ -15,7 +15,7 @@ import org.bson.conversions.Bson
 import org.slf4j.LoggerFactory
 import java.time.*
 import java.util.*
-import java.util.function.*
+import java.util.function.Consumer
 import kotlin.jvm.optionals.getOrElse
 
 class MongoTaskRepository(
@@ -36,7 +36,7 @@ class MongoTaskRepository(
       false
     }.recover {
       val entity: MongoTaskEntity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
-        .copy(picked = false)
+        .copy(picked = false, version = 0)
       collection.insertOne(entity).wasAcknowledged()
     }.getOrElse { false }
 
@@ -53,23 +53,36 @@ class MongoTaskRepository(
   ): Instant {
     val newExecutionTime = newInstance.getNextExecutionTime(clock.now())
     val newExecution = Execution(newExecutionTime, newInstance.taskInstance)
-    return getOption(toBeReplaced.documentId())
-      .map { found ->
-        collection.replaceOne(
-          Filters.and(
-            Filters.eq(MongoTaskEntity::identity.name, toBeReplaced.documentId()),
-            Filters.eq(MongoTaskEntity::version.name, found.version)
-          ),
-          toEntity(newExecution, found.metadata).copy(version = found.version + 1)
-        )
-        newExecutionTime
-      }.getOrElse {
-        throw TaskInstanceException(
-          "Task with id ${toBeReplaced.documentId()} not found",
-          toBeReplaced.taskName,
-          toBeReplaced.taskInstance.id
-        )
-      }
+    val replaced = collection.findOneAndUpdate(
+      Filters.and(
+        Filters.eq(MongoTaskEntity::identity.name, toBeReplaced.documentId()),
+        Filters.eq(MongoTaskEntity::version.name, toBeReplaced.version)
+      ),
+      Updates.combine(
+        Updates.set(MongoTaskEntity::taskName.name, newExecution.taskName),
+        Updates.set(MongoTaskEntity::taskInstance.name, newExecution.taskInstance.id),
+        Updates.set(MongoTaskEntity::picked.name, false),
+        Updates.set(MongoTaskEntity::pickedBy.name, null),
+        Updates.set(MongoTaskEntity::lastHeartbeat.name, null),
+        Updates.set(MongoTaskEntity::lastSuccess.name, null),
+        Updates.set(MongoTaskEntity::lastFailure.name, null),
+        Updates.set(MongoTaskEntity::consecutiveFailures.name, 0),
+        Updates.set(MongoTaskEntity::executionTime.name, newExecutionTime),
+        Updates.set(MongoTaskEntity::taskData.name, serializer.serialize(newExecution.taskInstance.data)),
+        Updates.set(MongoTaskEntity::version.name, 1)
+      ),
+      FindOneAndUpdateOptions().upsert(false).returnDocument(ReturnDocument.AFTER)
+    )
+    if (replaced != null) {
+      logger.debug("Task with id {} replaced with due: {}", toBeReplaced.documentId(), newExecutionTime)
+      return newExecutionTime
+    } else {
+      throw TaskInstanceException(
+        "Task with id ${toBeReplaced.documentId()} not found in the repository",
+        toBeReplaced.taskName,
+        toBeReplaced.taskInstance.id
+      )
+    }
   }
 
   override suspend fun getScheduledExecutions(
@@ -109,28 +122,49 @@ class MongoTaskRepository(
     )
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
-    return collection.find(filter)
+    val toBePicked = collection.find(filter)
+      .sort(Sorts.ascending(MongoTaskEntity::executionTime.name))
       .limit(limit)
-      .map { toExecution(it) }
-      .map { execution ->
-        logger.debug("#lockAndFetchGeneric task with id {}", execution.documentId())
-        val updated = collection.findOneAndUpdate(
-          Filters.and(
-            Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
-            Filters.eq(MongoTaskEntity::picked.name, false),
-            Filters.lte(MongoTaskEntity::executionTime.name, now),
-            unresolvedCondition.asFilter()
-          ),
-          Updates.combine(
-            Updates.set(MongoTaskEntity::picked.name, true),
-            Updates.set(MongoTaskEntity::pickedBy.name, pickedBy),
-            Updates.set(MongoTaskEntity::lastHeartbeat.name, lastHeartbeat),
-            Updates.inc(MongoTaskEntity::version.name, 1)
-          ),
-          FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+      .toList()
+
+    val toBePickedFilter = toBePicked.map {
+      it to Filters.and(
+        Filters.eq(MongoTaskEntity::identity.name, it.identity),
+        Filters.eq(MongoTaskEntity::picked.name, false),
+        Filters.eq(MongoTaskEntity::version.name, it.version),
+        Filters.lte(MongoTaskEntity::executionTime.name, now),
+        unresolvedCondition.asFilter()
+      )
+    }
+
+    return toBePickedFilter.mapNotNull { (it, filter) ->
+      val updated = collection.updateOne(
+        filter,
+        Updates.combine(
+          Updates.set(MongoTaskEntity::picked.name, true),
+          Updates.set(MongoTaskEntity::pickedBy.name, pickedBy),
+          Updates.set(MongoTaskEntity::lastHeartbeat.name, lastHeartbeat),
+          Updates.inc(MongoTaskEntity::version.name, 1)
         )
-        updated?.let { toExecution(it) }?.updateToPicked(pickedBy, lastHeartbeat)
-      }.filterNotNull().toList()
+      )
+      if (updated.modifiedCount == 1L) {
+        val maybe = getOption(it.identity)
+        if (!maybe.isSome()) {
+          logger.debug("Unable to find picked execution. Must have been deleted by another thread. Indicates a bug.")
+          null
+        } else {
+          if (!maybe.getOrNull()!!.picked) {
+            logger.debug("Execution was not picked after pick operation. Indicates a bug.")
+            null
+          } else {
+            toExecution(maybe.getOrNull()!!)
+          }
+        }
+      } else {
+        logger.debug("Execution with id {} was already picked", it.identity)
+        null
+      }
+    }
   }
 
   override suspend fun lockAndGetDue(
@@ -139,7 +173,7 @@ class MongoTaskRepository(
   ): List<Execution> = lockAndFetchGeneric(now, limit)
 
   override suspend fun remove(execution: Execution) {
-    collection.deleteOne(Filters.eq("identity", execution.documentId()))
+    collection.deleteOne(Filters.eq(TaskEntity::identity.name, execution.documentId()))
   }
 
   override suspend fun reschedule(
@@ -174,45 +208,63 @@ class MongoTaskRepository(
     lastFailure: Instant?,
     consecutiveFailures: Int
   ): Boolean {
-    val newExecution = Execution(nextExecutionTime, execution.taskInstance)
-    return getOption(execution.documentId())
-      .map { found ->
-        collection.replaceOne(
-          Filters.and(
-            Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
-            Filters.eq(MongoTaskEntity::version.name, found.version)
-          ),
-          toEntity(newExecution, found.metadata).copy(
-            lastSuccess = lastSuccess,
-            lastFailure = lastFailure,
-            consecutiveFailures = consecutiveFailures,
-            taskData = data.map { serializer.serialize(it) }.getOrElse { found.taskData },
-            version = found.version + 1
-          )
-        )
-        true
-      }.getOrElse { false }
+    val filter = Filters.and(
+      Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
+      Filters.eq(MongoTaskEntity::version.name, execution.version)
+    )
+
+    val updates = mutableListOf(
+      Updates.set(MongoTaskEntity::picked.name, false),
+      Updates.set(MongoTaskEntity::pickedBy.name, null),
+      Updates.set(MongoTaskEntity::lastHeartbeat.name, null),
+      Updates.set(MongoTaskEntity::lastSuccess.name, lastSuccess),
+      Updates.set(MongoTaskEntity::lastFailure.name, lastFailure),
+      Updates.set(MongoTaskEntity::consecutiveFailures.name, consecutiveFailures),
+      Updates.set(MongoTaskEntity::executionTime.name, nextExecutionTime),
+      Updates.inc(MongoTaskEntity::version.name, 1)
+    )
+    data.map { updates.add(Updates.set(MongoTaskEntity::taskData.name, serializer.serialize(it))) }
+
+    val updated = collection.updateOne(filter, Updates.combine(updates)).modifiedCount
+
+    if (updated != 1L) {
+      throw ExecutionException("Expected one execution to be updated, but updated $updated. Indicates a bug.", execution)
+    }
+
+    return true
   }
 
   override suspend fun pick(
     e: Execution,
     timePicked: Instant
-  ): Optional<Execution> = getOption(e.documentId())
-    .map { found ->
-      collection.replaceOne(
-        Filters.and(
-          Filters.eq(MongoTaskEntity::identity.name, e.documentId()),
-          Filters.eq(MongoTaskEntity::version.name, found.version)
-        ),
-        toEntity(e, found.metadata).copy(
-          picked = true,
-          pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE),
-          lastHeartbeat = timePicked,
-          version = found.version + 1
-        )
-      )
-      e
-    }.asJava()
+  ): Optional<Execution> = collection.updateOne(
+    Filters.and(
+      Filters.eq(MongoTaskEntity::identity.name, e.documentId()),
+      Filters.eq(MongoTaskEntity::version.name, e.version),
+      Filters.eq(MongoTaskEntity::picked.name, false)
+    ),
+    Updates.combine(
+      Updates.set(MongoTaskEntity::picked.name, true),
+      Updates.set(MongoTaskEntity::pickedBy.name, schedulerName.name.take(SCHEDULER_NAME_TAKE)),
+      Updates.set(MongoTaskEntity::lastHeartbeat.name, timePicked),
+      Updates.inc(MongoTaskEntity::version.name, 1)
+    )
+  ).let { updated ->
+    if (updated.modifiedCount == 1L) {
+      val maybe = getExecution(e.taskInstance)
+      if (!maybe.isPresent) {
+        error("Unable to find picked execution. Must have been deleted by another thread. Indicates a bug.")
+      } else {
+        if (!maybe.get().isPicked) {
+          error("Execution was not picked after pick operation. Indicates a bug.")
+        }
+        maybe
+      }
+    } else {
+      logger.debug("Execution with id {} was already picked", e.documentId())
+      Optional.empty()
+    }
+  }
 
   override suspend fun getDeadExecutions(
     olderThan: Instant
@@ -249,21 +301,25 @@ class MongoTaskRepository(
   override suspend fun updateHeartbeat(
     execution: Execution,
     heartbeatTime: Instant
-  ): Boolean = getOption(execution.documentId())
-    .map { found ->
-      collection.replaceOne(
-        Filters.and(
-          Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
-          Filters.eq(MongoTaskEntity::version.name, found.version)
-        ),
-        toEntity(execution, found.metadata)
-          .copy(
-            lastHeartbeat = heartbeatTime,
-            version = found.version + 1
-          )
+  ): Boolean {
+    collection.updateOne(
+      Filters.and(
+        Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
+        Filters.eq(MongoTaskEntity::version.name, execution.version)
+      ),
+      Updates.combine(
+        Updates.set(MongoTaskEntity::lastHeartbeat.name, heartbeatTime)
       )
-      true
-    }.getOrElse { false }
+    ).let { updated ->
+      if (updated.modifiedCount >= 1L) {
+        logger.debug("Heartbeat updated for execution with id {}", execution.documentId())
+        return true
+      } else {
+        logger.debug("Heartbeat update failed for execution with id {}", execution.documentId())
+        return false
+      }
+    }
+  }
 
   override suspend fun getExecutionsFailingLongerThan(interval: Duration): List<Execution> {
     val boundary = clock.now().minus(interval)
@@ -327,7 +383,17 @@ class MongoTaskRepository(
     }
 
     val taskInstance = TaskInstance(entity.taskName, entity.taskInstance, dataSupplier)
-    return Execution(entity.executionTime, taskInstance)
+    return Execution(
+      entity.executionTime,
+      taskInstance,
+      entity.picked,
+      entity.pickedBy,
+      entity.lastSuccess,
+      entity.lastFailure,
+      entity.consecutiveFailures,
+      entity.lastHeartbeat,
+      entity.version
+    )
   }
 
   private class UnresolvedFilter(private val unresolved: List<UnresolvedTask>) {

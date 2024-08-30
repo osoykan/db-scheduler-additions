@@ -2,10 +2,11 @@ package io.github.osoykan.dbscheduler.common
 
 import arrow.atomic.AtomicInt
 import com.github.kagkarlsson.scheduler.*
+import com.github.kagkarlsson.scheduler.task.FailureHandler.MaxRetriesFailureHandler
 import com.github.kagkarlsson.scheduler.task.Task
 import com.github.kagkarlsson.scheduler.task.helper.*
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
-import io.kotest.assertions.nondeterministic.eventually
+import io.kotest.assertions.nondeterministic.*
 import io.kotest.core.spec.style.AnnotationSpec
 import io.kotest.matchers.ints.shouldNotBeGreaterThan
 import io.kotest.matchers.shouldBe
@@ -63,6 +64,11 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       executionCount.get() shouldBe 1
       executionCount.get() shouldNotBeGreaterThan 1
     }
+
+    continually(10.seconds) {
+      executionCount.get() shouldBe 1
+    }
+
     scheduler.stop()
   }
 
@@ -90,6 +96,11 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       executionCount.get() shouldBe amountOfTasks
       executionCount.get() shouldNotBeGreaterThan amountOfTasks
     }
+
+    continually(10.seconds) {
+      executionCount.get() shouldBe amountOfTasks
+    }
+
     scheduler.stop()
   }
 
@@ -158,6 +169,10 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       executionCount.get() shouldNotBeGreaterThan count
     }
 
+    continually(10.seconds) {
+      executionCount.get() shouldBe count
+    }
+
     scheduler1.stop()
     scheduler2.stop()
     scheduler3.stop()
@@ -173,12 +188,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     val executionCount = AtomicInt(0)
     val maxRetry = 3
+    val totalExecutions = maxRetry + 1
     val task = Tasks.oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
-      .onFailure { executionComplete, executionOperations ->
-        if (executionComplete.execution.consecutiveFailures < maxRetry) {
-          executionOperations.reschedule(executionComplete, Instant.now().plusMillis(100))
+      .onFailure(
+        MaxRetriesFailureHandler(maxRetry) { e, a ->
+          a.reschedule(e, Instant.now().plusMillis(100))
         }
-      }
+      )
       .execute { _, _ ->
         executionCount.incrementAndGet()
         error("on purpose failure")
@@ -190,8 +206,12 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     scheduler.schedule(task.instance("failing-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now())
 
     eventually(3.minutes) {
-      executionCount.get() shouldBe 3
-      executionCount.get() shouldNotBeGreaterThan 3
+      executionCount.get() shouldBe totalExecutions
+      executionCount.get() shouldNotBeGreaterThan totalExecutions
+    }
+
+    continually(10.seconds) {
+      executionCount.get() shouldBe totalExecutions
     }
 
     scheduler.stop()

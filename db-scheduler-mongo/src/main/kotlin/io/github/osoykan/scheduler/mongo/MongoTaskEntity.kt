@@ -20,7 +20,7 @@ class MongoTaskEntity
     @BsonProperty("pickedBy")
     override val pickedBy: String?,
     @BsonProperty("consecutiveFailures")
-    override val consecutiveFailures: Int?,
+    override val consecutiveFailures: Int,
     @BsonProperty("lastSuccess")
     override val lastSuccess: Instant?,
     @BsonProperty("lastFailure")
@@ -55,7 +55,7 @@ class MongoTaskEntity
       executionTime: Instant? = this.executionTime,
       picked: Boolean = this.picked,
       pickedBy: String? = this.pickedBy,
-      consecutiveFailures: Int? = this.consecutiveFailures,
+      consecutiveFailures: Int = this.consecutiveFailures,
       lastSuccess: Instant? = this.lastSuccess,
       lastFailure: Instant? = this.lastFailure,
       lastHeartbeat: Instant? = this.lastHeartbeat,

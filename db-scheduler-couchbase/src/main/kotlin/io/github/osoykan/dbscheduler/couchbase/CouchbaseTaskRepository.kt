@@ -476,7 +476,17 @@ class CouchbaseTaskRepository(
     }
 
     val taskInstance = TaskInstance(entity.taskName, entity.taskInstance, dataSupplier)
-    return Execution(entity.executionTime, taskInstance)
+    return Execution(
+      entity.executionTime,
+      taskInstance,
+      entity.picked,
+      entity.pickedBy,
+      entity.lastSuccess,
+      entity.lastFailure,
+      entity.consecutiveFailures,
+      entity.lastHeartbeat,
+      entity.version
+    )
   }
 
   private class UnresolvedFilter(val unresolved: List<UnresolvedTask>) {
