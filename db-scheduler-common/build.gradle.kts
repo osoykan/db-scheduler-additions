@@ -20,5 +20,6 @@ dependencies {
 
   testFixturesImplementation(libs.kotest.property.jvm)
   testFixturesImplementation(libs.kotest.runner.junit5)
-  testFixturesApi(libs.datafaker)
+  testFixturesImplementation(libs.datafaker)
+  testFixturesImplementation(libs.arrow.core)
 }

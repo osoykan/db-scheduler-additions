@@ -1,7 +1,6 @@
 package io.github.osoykan.dbscheduler.couchbase
 
 import arrow.core.*
-import arrow.core.raise.option
 import com.couchbase.client.core.error.*
 import com.couchbase.client.kotlin.*
 import com.couchbase.client.kotlin.Collection
@@ -22,34 +21,6 @@ import java.util.concurrent.TimeoutException
 import java.util.function.Consumer
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-
-data class Couchbase(
-  val cluster: Cluster,
-  val bucketName: String,
-  val preferredCollection: String? = null
-) {
-  private val logger = LoggerFactory.getLogger(Couchbase::class.java)
-  private val bucket = cluster.bucket(bucketName)
-  private val defaultScope = bucket.defaultScope()
-  val schedulerCollection: Collection by lazy {
-    preferredCollection?.let { cluster.bucket(bucketName).collection(it) } ?: cluster.bucket(bucketName).defaultCollection()
-  }
-
-  suspend fun ensurePreferredCollectionExists() {
-    option {
-      val collection = preferredCollection.toOption().bind()
-      val exists = bucket.collections.getScope(defaultScope.name).collections.any { it.name == collection }
-      if (exists) {
-        logger.debug("Collection $collection already exists")
-        return@option
-      }
-
-      logger.debug("Creating collection $collection")
-      cluster.bucket(bucketName).collections.createCollection(defaultScope.name, collection)
-      logger.debug("Collection $collection created")
-    }
-  }
-}
 
 @Suppress("TooManyFunctions")
 class CouchbaseTaskRepository(

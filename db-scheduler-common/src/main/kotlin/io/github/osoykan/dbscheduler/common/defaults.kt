@@ -17,3 +17,11 @@ class NamedThreadFactory(private val name: String) : ThreadFactory {
     return thread
   }
 }
+
+interface DocumentDatabase<SELF> {
+  val collection: String
+
+  suspend fun ensureCollectionExists()
+
+  fun withCollection(collection: String): SELF
+}
