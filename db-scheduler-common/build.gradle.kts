@@ -1,5 +1,6 @@
 plugins {
   kotlin("jvm") version libs.versions.kotlin
+  `java-test-fixtures`
 }
 
 dependencies {
@@ -16,4 +17,8 @@ dependencies {
   testImplementation(libs.stove.testing.mongo)
   testImplementation(libs.logback.classic)
   testImplementation(libs.janino)
+
+  testFixturesImplementation(libs.kotest.property.jvm)
+  testFixturesImplementation(libs.kotest.runner.junit5)
+  testFixturesApi(libs.datafaker)
 }

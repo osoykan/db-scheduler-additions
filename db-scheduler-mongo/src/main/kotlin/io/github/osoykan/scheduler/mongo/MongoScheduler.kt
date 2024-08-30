@@ -3,22 +3,19 @@ package io.github.osoykan.scheduler.mongo
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.kagkarlsson.scheduler.*
-import com.github.kagkarlsson.scheduler.Clock
 import com.github.kagkarlsson.scheduler.event.*
 import com.github.kagkarlsson.scheduler.logging.LogLevel
 import com.github.kagkarlsson.scheduler.serializer.*
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
-import io.github.osoykan.dbscheduler.common.KTaskRepository
-import io.micrometer.core.instrument.Metrics
+import io.github.osoykan.dbscheduler.common.*
+import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.prometheusmetrics.*
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
-import java.time.*
 import java.util.concurrent.*
 import kotlin.time.*
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,27 +68,8 @@ class MongoScheduler(
     onStop()
   }
 
-  object AppMicrometer {
-    val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
-      .also { Metrics.addRegistry(it) }
-  }
-
   companion object {
-    val defaultObjectMapper: ObjectMapper = jacksonObjectMapper().apply { findAndRegisterModules() }
-
-    class UtcClock : Clock {
-      override fun now(): Instant = Instant.now().atZone(ZoneOffset.UTC).toInstant()
-    }
-
-    private class NamedThreadFactory(private val name: String) : ThreadFactory {
-      private val threadFactory = Executors.defaultThreadFactory()
-
-      override fun newThread(r: Runnable): Thread {
-        val thread = threadFactory.newThread(r)
-        thread.name = name + "-" + thread.name
-        return thread
-      }
-    }
+    private val defaultObjectMapper: ObjectMapper = jacksonObjectMapper().apply { findAndRegisterModules() }
 
     fun create(
       mongo: Mongo,
@@ -108,11 +86,12 @@ class MongoScheduler(
       logStackTrace: Boolean = true,
       shutdownMaxWait: Duration = 1.minutes,
       numberOfMissedHeartbeatsBeforeDead: Int = 3,
-      listeners: List<SchedulerListener> = emptyList()
+      listeners: List<SchedulerListener> = emptyList(),
+      meterRegistry: MeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT),
+      statsRegistry: StatsRegistry = MicrometerStatsRegistry(meterRegistry, knownTasks + startupTasks),
+      clock: Clock = UtcClock()
     ): Scheduler {
       val logger = LoggerFactory.getLogger(MongoScheduler::class.java)
-      val clock = UtcClock()
-      val statsRegistry = MicrometerStatsRegistry(AppMicrometer.registry, knownTasks + startupTasks)
       val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
       val executorService = Executors.newFixedThreadPool(fixedThreadPoolSize, NamedThreadFactory("db-scheduler-$name"))
       val houseKeeperExecutorService = Executors.newScheduledThreadPool(
@@ -131,7 +110,8 @@ class MongoScheduler(
       val taskRepository = KTaskRepository(
         MongoTaskRepository(clock, mongo, taskResolver, SchedulerName.Fixed(name), serializer),
         scope
-      )
+      ).also { it.createIndexes() }
+
       return MongoScheduler(
         clock = clock,
         schedulerTaskRepository = taskRepository,

@@ -14,7 +14,7 @@
         </encoder>
     </appender>
 
-    <root level="TRACE">
+    <root level="DEBUG">
         <if condition='property("logFormat").contains("JSON")'>
             <then>
                 <appender-ref ref="JSON_STDOUT"/>

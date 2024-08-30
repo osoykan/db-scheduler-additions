@@ -22,4 +22,5 @@ dependencies {
   testImplementation(libs.stove.testing.mongo)
   testImplementation(libs.logback.classic)
   testImplementation(libs.janino)
+  testImplementation(testFixtures(projects.dbSchedulerCommon))
 }

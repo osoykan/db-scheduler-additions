@@ -115,6 +115,7 @@ stove-testing-wiremock = { module = "com.trendyol:stove-testing-e2e-wiremock", v
 stove-testing-kafka = { module = "com.trendyol:stove-testing-e2e-kafka", version.ref = "stove" }
 stove-testing-mongo = { module = "com.trendyol:stove-testing-e2e-mongodb", version.ref = "stove" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+datafaker = { module = "net.datafaker:datafaker", version = "2.3.1" }
 
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }
 hikari = { module = "com.zaxxer:HikariCP", version = "5.1.0" }

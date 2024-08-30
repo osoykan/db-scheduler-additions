@@ -15,10 +15,9 @@ open class TaskEntity(
   open val lastFailure: Instant?,
   open val lastHeartbeat: Instant?,
   open val version: Long = 0,
+  open val metadata: MutableMap<String, Any> = mutableMapOf(),
   open val identity: String = "$taskName-$taskInstance"
 ) {
-  val metadata: MutableMap<String, Any> = mutableMapOf()
-
   fun <T : Any> setMetadata(
     key: String,
     value: T
@@ -26,43 +25,13 @@ open class TaskEntity(
     metadata[key] = value
   }
 
-  fun hasMetadata(key: String): Boolean = metadata.containsKey(key)
+  private fun hasMetadata(key: String): Boolean = metadata.containsKey(key)
 
   fun removeMetadata(key: String) {
     if (hasMetadata(key)) {
       metadata.remove(key)
     }
   }
-
-  @Suppress("UNCHECKED_CAST")
-  fun <T : TaskEntity> copy(
-    taskName: String = this.taskName,
-    taskInstance: String = this.taskInstance,
-    taskData: ByteArray = this.taskData,
-    executionTime: Instant? = this.executionTime,
-    picked: Boolean = this.picked,
-    pickedBy: String? = this.pickedBy,
-    consecutiveFailures: Int? = this.consecutiveFailures,
-    lastSuccess: Instant? = this.lastSuccess,
-    lastFailure: Instant? = this.lastFailure,
-    lastHeartbeat: Instant? = this.lastHeartbeat,
-    version: Long = this.version,
-    metadata: Map<String, Any> = this.metadata
-  ): T = TaskEntity(
-    taskName = taskName,
-    taskInstance = taskInstance,
-    taskData = taskData,
-    executionTime = executionTime,
-    picked = picked,
-    pickedBy = pickedBy,
-    consecutiveFailures = consecutiveFailures,
-    lastSuccess = lastSuccess,
-    lastFailure = lastFailure,
-    lastHeartbeat = lastHeartbeat,
-    version = version
-  ).apply {
-    metadata.forEach { (key, value) -> setMetadata(key, value) }
-  } as T
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true

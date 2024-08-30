@@ -6,8 +6,6 @@ import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import com.mongodb.*
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.kotest.assertions.nondeterministic.eventually
-import io.kotest.common.ExperimentalKotest
-import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldNotBeGreaterThan
 import io.kotest.matchers.shouldBe
@@ -19,12 +17,6 @@ import java.time.Instant
 import java.util.*
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
-
-@ExperimentalKotest
-class TestConfig : AbstractProjectConfig() {
-  override val parallelism: Int = Runtime.getRuntime().availableProcessors()
-  override val concurrentTests: Int = Runtime.getRuntime().availableProcessors()
-}
 
 class SchedulerTests : FunSpec({
   lateinit var mongo: Mongo

@@ -15,13 +15,11 @@ class KTaskRepository(
 ) : TaskRepository {
   private val logger = LoggerFactory.getLogger(KTaskRepository::class.java)
 
-  init {
-    scope.launch {
-      logger.debug("Creating indexes for DecoratedMongoRepository")
-      Either.catch { taskRepository.createIndexes() }
-        .onRight { logger.debug("Created indexes for CouchbaseTaskRepository") }
-        .mapLeft { logger.error("Failed to create indexes for db-scheduler", it) }
-    }
+  fun createIndexes() = runBlocking(scope.coroutineContext) {
+    logger.debug("Creating indexes for DbScheduler")
+    Either.catch { taskRepository.createIndexes() }
+      .onRight { logger.debug("Created indexes for DbScheduler") }
+      .mapLeft { logger.error("Failed to create indexes for db-scheduler", it) }
   }
 
   override fun createIfNotExists(execution: SchedulableInstance<*>): Boolean = runBlocking(scope.coroutineContext) {

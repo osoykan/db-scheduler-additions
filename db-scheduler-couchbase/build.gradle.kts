@@ -21,4 +21,5 @@ dependencies {
   testImplementation(libs.stove.testing.couchbase)
   testImplementation(libs.logback.classic)
   testImplementation(libs.janino)
+  testImplementation(testFixtures(projects.dbSchedulerCommon))
 }

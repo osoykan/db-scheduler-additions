@@ -1,4 +1,4 @@
-package com.github.kagkarlsson.scheduler.couchbase
+package io.github.osoykan.dbscheduler.couchbase
 
 import arrow.core.*
 import arrow.core.raise.option
@@ -14,10 +14,13 @@ import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
 import io.github.osoykan.dbscheduler.common.*
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.time.*
 import java.util.*
+import java.util.concurrent.TimeoutException
 import java.util.function.Consumer
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 data class Couchbase(
@@ -25,23 +28,26 @@ data class Couchbase(
   val bucketName: String,
   val preferredCollection: String? = null
 ) {
+  private val logger = LoggerFactory.getLogger(Couchbase::class.java)
   private val bucket = cluster.bucket(bucketName)
   private val defaultScope = bucket.defaultScope()
+  val schedulerCollection: Collection by lazy {
+    preferredCollection?.let { cluster.bucket(bucketName).collection(it) } ?: cluster.bucket(bucketName).defaultCollection()
+  }
 
   suspend fun ensurePreferredCollectionExists() {
     option {
       val collection = preferredCollection.toOption().bind()
       val exists = bucket.collections.getScope(defaultScope.name).collections.any { it.name == collection }
       if (exists) {
+        logger.debug("Collection $collection already exists")
         return@option
       }
 
+      logger.debug("Creating collection $collection")
       cluster.bucket(bucketName).collections.createCollection(defaultScope.name, collection)
+      logger.debug("Collection $collection created")
     }
-  }
-
-  val defaultCollection: Collection by lazy {
-    preferredCollection?.let { cluster.bucket(bucketName).collection(it) } ?: cluster.bucket(bucketName).defaultCollection()
   }
 }
 
@@ -59,7 +65,7 @@ class CouchbaseTaskRepository(
   }
 
   private val logger = LoggerFactory.getLogger(CouchbaseTaskRepository::class.java)
-  private val collection: Collection by lazy { couchbase.defaultCollection }
+  private val collection: Collection by lazy { couchbase.schedulerCollection }
   private val Collection.fullName: String get() = "`${couchbase.bucketName}`.`${scope.name}`.`$name`"
   private val cluster: Cluster by lazy { couchbase.cluster }
 
@@ -89,8 +95,11 @@ class CouchbaseTaskRepository(
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
-      append(" WHERE c.isPicked = false AND (c.executionTime <= \$now OR c.executionTime IS NULL)")
-      append(" ORDER BY c.executionTime")
+      append(
+        " WHERE c.${TaskEntity::picked.name} = false " +
+          "AND (c.${TaskEntity::executionTime.name} <= \$now OR c.${TaskEntity::executionTime.name} IS NULL)"
+      )
+      append(" ORDER BY c.${TaskEntity::executionTime.name}")
       append(" LIMIT \$limit")
     }
     return queryFor<CouchbaseTaskEntity>(
@@ -148,7 +157,7 @@ class CouchbaseTaskRepository(
     filter: ScheduledExecutionsFilter,
     consumer: Consumer<Execution>
   ) {
-    val pickedCondition = filter.pickedValue.asArrow().map { "c.isPicked = $it" }.getOrElse { "" }
+    val pickedCondition = filter.pickedValue.asArrow().map { "c.${TaskEntity::picked.name} = $it" }.getOrElse { "" }
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
@@ -157,7 +166,7 @@ class CouchbaseTaskRepository(
         append(" WHERE $pickedCondition")
       }
 
-      append(" ORDER BY c.executionTime")
+      append(" ORDER BY c.${TaskEntity::executionTime.name}")
     }
 
     queryFor<CouchbaseTaskEntity>(query)
@@ -170,17 +179,17 @@ class CouchbaseTaskRepository(
     taskName: String,
     consumer: Consumer<Execution>
   ) {
-    val pickedCondition = filter.pickedValue.asArrow().map { "c.isPicked = $it" }.getOrElse { "" }
+    val pickedCondition = filter.pickedValue.asArrow().map { "c.${TaskEntity::picked.name} = $it" }.getOrElse { "" }
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
-      append(" WHERE c.taskName = \$taskName")
+      append(" WHERE c.${TaskEntity::taskName.name} = \$taskName")
 
       if (pickedCondition.isNotEmpty()) {
         append(" AND $pickedCondition")
       }
 
-      append(" ORDER BY c.executionTime")
+      append(" ORDER BY c.${TaskEntity::executionTime.name}")
     }
 
     queryFor<CouchbaseTaskEntity>(
@@ -197,11 +206,14 @@ class CouchbaseTaskRepository(
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
-      append(" WHERE c.isPicked = false AND (c.executionTime <= \$now OR c.executionTime IS NULL)")
+      append(
+        " WHERE c.${TaskEntity::picked.name} = false " +
+          "AND (c.${TaskEntity::executionTime.name} <= \$now OR c.${TaskEntity::executionTime.name}  IS NULL)"
+      )
       if (unresolvedCondition.unresolved.isNotEmpty()) {
         append(" AND $unresolvedCondition")
       }
-      append(" ORDER BY c.executionTime")
+      append(" ORDER BY c.${TaskEntity::executionTime.name} ")
       append(" LIMIT \$limit")
     }
 
@@ -287,7 +299,7 @@ class CouchbaseTaskRepository(
     lastFailure: Instant?,
     consecutiveFailures: Int
   ): Boolean = getLockAndUpdate(execution.documentId()) {
-    it.copy<CouchbaseTaskEntity>(
+    it.copy(
       picked = false,
       pickedBy = null,
       lastHeartbeat = null,
@@ -296,7 +308,7 @@ class CouchbaseTaskRepository(
       executionTime = nextExecutionTime,
       consecutiveFailures = consecutiveFailures,
       version = it.version + 1
-    ).let { data.map { d -> it.copy<CouchbaseTaskEntity>(taskData = serializer.serialize(d)) }.getOrElse { it } }
+    ).let { data.map { d -> it.copy(taskData = serializer.serialize(d)) }.getOrElse { it } }
   }.isSome()
 
   override suspend fun pick(
@@ -317,7 +329,10 @@ class CouchbaseTaskRepository(
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
-      append(" WHERE c.isPicked = true AND (c.lastHeartbeat <= \$olderThan or c.lastHeartbeat IS NULL)")
+      append(
+        " WHERE c.${TaskEntity::picked.name} = true " +
+          "AND (c.${TaskEntity::lastHeartbeat.name} <= \$olderThan or c.${TaskEntity::lastHeartbeat.name} IS NULL)"
+      )
       append(" ORDER BY c.lastHeartbeat")
     }
 
@@ -357,8 +372,8 @@ class CouchbaseTaskRepository(
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
-      append(" WHERE (c.lastFailure IS NOT NULL AND c.lastSuccess IS NULL)")
-      append(" OR (c.lastFailure IS NOT NULL AND c.lastSuccess < \$boundary)")
+      append(" WHERE (c.${TaskEntity::lastFailure.name} IS NOT NULL AND c.${TaskEntity::lastSuccess.name} IS NULL)")
+      append(" OR (c.${TaskEntity::lastFailure.name} IS NOT NULL AND c.${TaskEntity::lastSuccess.name} < \$boundary)")
     }
     val boundary = clock.now().minus(interval)
     return queryFor<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("boundary" to boundary)))
@@ -369,7 +384,7 @@ class CouchbaseTaskRepository(
     val query = buildString {
       append("DELETE FROM")
       append(" ${collection.fullName} c")
-      append(" WHERE c.taskName = \$taskName")
+      append(" WHERE c.${TaskEntity::taskName.name} = \$taskName")
       append(" RETURNING *")
     }
     val result = cluster.query(
@@ -382,44 +397,30 @@ class CouchbaseTaskRepository(
   }
 
   override suspend fun verifySupportsLockAndFetch() {
-    logger.info("Couchbase supports locking with #getAndLock")
+    logger.debug("Couchbase supports locking with #getAndLock")
   }
 
-  override suspend fun createIndexes() {
-    val indexes = mapOf(
-      "idx_is_picked" to suspend {
-        collection.queryIndexes.createIndex(
-          indexName = "idx_is_picked",
-          fields = listOf("isPicked"),
-          ignoreIfExists = true
-        )
-      },
-      "idx_execution_time" to suspend {
-        collection.queryIndexes.createIndex(
-          indexName = "idx_execution_time",
-          fields = listOf("executionTime"),
-          ignoreIfExists = true
-        )
-      },
-      "idx_last_heartbeat" to suspend {
-        collection.queryIndexes.createIndex(
-          indexName = "idx_last_heartbeat",
-          fields = listOf("lastHeartbeat"),
-          ignoreIfExists = true
-        )
-      },
-      "idx_task_name" to suspend {
-        collection.queryIndexes.createIndex(
-          indexName = "idx_task_name",
-          fields = listOf("taskName"),
-          ignoreIfExists = true
+  override suspend fun createIndexes(): Unit = coroutineScope {
+    cluster.waitForKeySpaceAvailability(couchbase.bucketName, couchbase.schedulerCollection.name, 30.seconds, logger = { logger.info(it) })
+
+    data class Index(val name: String, val fields: List<String>, val ignoreIfExists: Boolean = true)
+    listOf(
+      Index("idx_is_picked", listOf(TaskEntity::picked.name)),
+      Index("idx_execution_time", listOf(TaskEntity::executionTime.name)),
+      Index("idx_last_heartbeat", listOf(TaskEntity::lastHeartbeat.name)),
+      Index("idx_task_name", listOf(TaskEntity::taskName.name))
+    ).onEach {
+      logger.debug("Creating index {}", it.name)
+      collection.waitUntilIndexIsCreated(logger = { m -> logger.debug(m) }) {
+        queryIndexes.createIndex(
+          indexName = it.name,
+          fields = it.fields,
+          ignoreIfExists = it.ignoreIfExists,
+          numReplicas = 0,
+          deferred = true
         )
       }
-    )
-    indexes.forEach {
-      logger.info("Creating index {}", it.key)
-      indexes.getValue(it.key)()
-      logger.info("Index {} created", it.key)
+      logger.debug("Index {} created", it.name)
     }
   }
 
@@ -509,5 +510,62 @@ class CouchbaseTaskRepository(
 
   private class UnresolvedFilter(val unresolved: List<UnresolvedTask>) {
     override fun toString(): String = "taskName not in (${unresolved.joinToString(", ") { "'${it.taskName}'" }})"
+  }
+
+  private suspend fun Cluster.waitForKeySpaceAvailability(
+    bucketName: String,
+    keyspaceName: String,
+    duration: kotlin.time.Duration,
+    delayMillis: Long = 1000,
+    logger: (log: String) -> Unit = ::println
+  ): Unit = waitUntilSucceeds(
+    continueIf = { it is CollectionNotFoundException },
+    duration = duration,
+    delayMillis = delayMillis,
+    logger = logger
+  ) { bucket(bucketName).defaultScope().collection(keyspaceName).exists("not-important") }
+
+  private suspend fun Collection.waitUntilIndexIsCreated(
+    duration: kotlin.time.Duration = 1.minutes,
+    delayMillis: Long = 50,
+    logger: (log: String) -> Unit = ::println,
+    indexOps: suspend Collection.() -> Unit
+  ): Unit = waitUntilSucceeds(
+    continueIf = { it is IndexFailureException || it is InternalServerFailureException || it is UnambiguousTimeoutException },
+    duration = duration,
+    delayMillis = delayMillis,
+    logger = logger
+  ) { indexOps(this) }
+
+  private suspend fun waitUntilSucceeds(
+    continueIf: (Throwable) -> Boolean,
+    duration: kotlin.time.Duration = 10.minutes,
+    delayMillis: Long = 50,
+    logger: (log: String) -> Unit = ::println,
+    block: suspend () -> Unit
+  ) {
+    val startTime = System.currentTimeMillis()
+    while (System.currentTimeMillis() - startTime < duration.inWholeMilliseconds) {
+      val executed = try {
+        block()
+        true
+      } catch (e: Throwable) {
+        logger("Operation failed.\nBecause of: $e")
+        when {
+          continueIf(e) -> false
+          else -> throw e
+        }
+      }
+
+      if (executed) {
+        logger("Operation executed successfully")
+        return
+      }
+
+      logger("Operation is not successful. Waiting for $delayMillis ms...")
+      delay(delayMillis)
+    }
+
+    throw TimeoutException("Timed out waiting for the operation!")
   }
 }
