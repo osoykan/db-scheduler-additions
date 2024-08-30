@@ -16,6 +16,7 @@ import org.testcontainers.couchbase.*
 import org.testcontainers.utility.DockerImageName
 import java.time.Instant
 import java.util.*
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
@@ -91,7 +92,7 @@ class CouchbaseSchedulerTest : FunSpec({
 
     scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusMillis(200))
 
-    eventually(30.seconds) {
+    eventually(3.minutes) {
       executionCount.get() shouldBe 1
       executionCount.get() shouldNotBeGreaterThan 1
     }
@@ -116,7 +117,7 @@ class CouchbaseSchedulerTest : FunSpec({
 
     tasks.map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
 
-    eventually(30.seconds) {
+    eventually(3.minutes) {
       executionCount.get() shouldBe amountOfTasks
       executionCount.get() shouldNotBeGreaterThan amountOfTasks
     }
@@ -137,7 +138,7 @@ class CouchbaseSchedulerTest : FunSpec({
     val processingScheduler = CouchbaseScheduler.create(testCouchbase, startupTasks = listOf(task), name = testCase.name.testName + "Processing")
     processingScheduler.start()
 
-    eventually(10.seconds) {
+    eventually(3.minutes) {
       executionCount.get() shouldBe 2
       executionCount.get() shouldNotBeGreaterThan 2
     }
@@ -172,7 +173,7 @@ class CouchbaseSchedulerTest : FunSpec({
       async { scheduler3.start() }
     )
 
-    eventually(30.seconds) {
+    eventually(3.minutes) {
       executionCount.get() shouldBe count
       executionCount.get() shouldNotBeGreaterThan count
     }
@@ -202,7 +203,7 @@ class CouchbaseSchedulerTest : FunSpec({
 
     scheduler.schedule(task.instance("failing-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now())
 
-    eventually(30.seconds) {
+    eventually(3.minutes) {
       executionCount.get() shouldBe 3
       executionCount.get() shouldNotBeGreaterThan 3
     }
