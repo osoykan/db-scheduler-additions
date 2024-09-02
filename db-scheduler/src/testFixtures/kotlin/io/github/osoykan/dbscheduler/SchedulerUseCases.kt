@@ -447,12 +447,10 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .also { it.start() }
 
     val executionTime = Instant.now().plusSeconds(10.days.inWholeSeconds)
-    (1..amountOfUnresolvedTasks).map {
-      async {
-        val scheduledTask = task.instance("unresolved-task-$it-${UUID.randomUUID()}", TestTaskData("test-$it"))
-        scheduler.schedule(scheduledTask, executionTime)
-      }
-    }.awaitAll()
+    (1..amountOfUnresolvedTasks).onEach {
+      val scheduledTask = task.instance("unresolved-task-$it-${UUID.randomUUID()}", TestTaskData("test-$it"))
+      scheduler.schedule(scheduledTask, executionTime)
+    }
 
     eventually(1.minutes) {
       val tasks = mutableListOf<ScheduledExecution<*>>()
