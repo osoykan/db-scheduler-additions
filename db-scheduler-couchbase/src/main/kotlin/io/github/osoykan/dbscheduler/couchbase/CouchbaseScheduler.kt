@@ -1,23 +1,11 @@
 package io.github.osoykan.dbscheduler.couchbase
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.event.*
 import com.github.kagkarlsson.scheduler.logging.LogLevel
-import com.github.kagkarlsson.scheduler.serializer.*
-import com.github.kagkarlsson.scheduler.stats.*
-import com.github.kagkarlsson.scheduler.task.*
-import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
-import io.github.osoykan.dbscheduler.common.*
-import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.prometheusmetrics.*
-import kotlinx.coroutines.*
-import org.slf4j.LoggerFactory
+import com.github.kagkarlsson.scheduler.task.OnStartup
 import java.util.concurrent.*
 import kotlin.time.*
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 @Suppress("LongParameterList")
 class CouchbaseScheduler(
@@ -66,75 +54,5 @@ class CouchbaseScheduler(
   override fun stop() {
     super.stop()
     onStop()
-  }
-
-  companion object {
-    val defaultObjectMapper: ObjectMapper = jacksonObjectMapper().apply { findAndRegisterModules() }
-
-    fun create(
-      couchbase: Couchbase,
-      knownTasks: List<Task<*>> = emptyList(),
-      startupTasks: List<RecurringTask<*>> = emptyList(),
-      name: String = SchedulerName.Hostname().name,
-      serializer: Serializer = JacksonSerializer(defaultObjectMapper),
-      fixedThreadPoolSize: Int = 10,
-      corePoolSize: Int = 1,
-      heartbeatInterval: Duration = 2.seconds,
-      executeDue: Duration = 2.seconds,
-      deleteUnresolvedAfter: Duration = 1.seconds,
-      logLevel: LogLevel = LogLevel.TRACE,
-      logStackTrace: Boolean = true,
-      shutdownMaxWait: Duration = 1.minutes,
-      numberOfMissedHeartbeatsBeforeDead: Int = 3,
-      listeners: List<SchedulerListener> = emptyList(),
-      meterRegistry: MeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT),
-      statsRegistry: StatsRegistry = MicrometerStatsRegistry(meterRegistry, knownTasks + startupTasks),
-      clock: Clock = UtcClock()
-    ): Scheduler {
-      val logger = LoggerFactory.getLogger(CouchbaseScheduler::class.java)
-      val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
-      val executorService = Executors.newFixedThreadPool(fixedThreadPoolSize, NamedThreadFactory("db-scheduler-$name"))
-      val houseKeeperExecutorService = Executors.newScheduledThreadPool(
-        corePoolSize,
-        NamedThreadFactory("db-scheduler-housekeeper-$name")
-      )
-      val dispatcher = executorService.asCoroutineDispatcher()
-      val scope = CoroutineScope(
-        dispatcher +
-          SupervisorJob() +
-          CoroutineName("db-scheduler-$name") +
-          CoroutineExceptionHandler { coroutineContext, throwable ->
-            logger.error("Coroutine failed, context: {}", coroutineContext, throwable)
-          }
-      )
-      val taskRepository = KTaskRepository(
-        CouchbaseTaskRepository(clock, couchbase, taskResolver, SchedulerName.Fixed(name), serializer),
-        scope
-      ).also { it.createIndexes() }
-
-      return CouchbaseScheduler(
-        clock = clock,
-        schedulerTaskRepository = taskRepository,
-        clientTaskRepository = taskRepository,
-        taskResolver = taskResolver,
-        schedulerName = SchedulerName.Fixed(name),
-        threadPoolSize = corePoolSize,
-        executorService = executorService,
-        houseKeeperExecutorService = houseKeeperExecutorService,
-        deleteUnresolvedAfter = deleteUnresolvedAfter,
-        executeDueWaiter = Waiter(executeDue.toJavaDuration()),
-        heartbeatInterval = heartbeatInterval,
-        logLevel = logLevel,
-        onStartup = startupTasks,
-        logStackTrace = logStackTrace,
-        pollingStrategy = PollingStrategyConfig.DEFAULT_SELECT_FOR_UPDATE,
-        shutdownMaxWait = shutdownMaxWait,
-        numberOfMissedHeartbeatsBeforeDead = numberOfMissedHeartbeatsBeforeDead,
-        schedulerListeners = listOf(StatsRegistryAdapter(statsRegistry)) + listeners
-      ) {
-        scope.cancel()
-        dispatcher.cancel()
-      }
-    }
   }
 }

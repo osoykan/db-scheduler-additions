@@ -2,6 +2,7 @@ package io.github.osoykan.dbscheduler.couchbase
 
 import com.couchbase.client.kotlin.Cluster
 import com.couchbase.client.kotlin.codec.*
+import com.github.kagkarlsson.scheduler.serializer.JacksonSerializer.getDefaultObjectMapper
 import io.github.osoykan.dbscheduler.common.*
 import io.kotest.core.spec.Spec
 import org.testcontainers.couchbase.*
@@ -37,17 +38,24 @@ class CouchbaseSchedulerUseCases : SchedulerUseCases<Couchbase>() {
         this.searchTimeout = 30.seconds
       }
       compression { this.enable = true }
-      this.jsonSerializer = JacksonJsonSerializer(CouchbaseScheduler.defaultObjectMapper)
-      this.transcoder = JsonTranscoder(JacksonJsonSerializer(CouchbaseScheduler.defaultObjectMapper))
-    }.also { it.waitUntilReady(30.seconds) }
+      this.jsonSerializer = JacksonJsonSerializer(getDefaultObjectMapper().findAndRegisterModules())
+      this.transcoder = JsonTranscoder(JacksonJsonSerializer(getDefaultObjectMapper().findAndRegisterModules()))
+    }
 
     cluster.waitUntilReady(30.seconds)
     couchbase = Couchbase(cluster, DEFAULT_BUCKET)
   }
 
   override suspend fun caseDefinition(): CaseDefinition<Couchbase> =
-    CaseDefinition(couchbase) { db, tasks, startupTasks, name ->
-      CouchbaseScheduler.create(db, tasks, startupTasks, name)
+    CaseDefinition(couchbase) { db, tasks, startupTasks, name, clock ->
+      scheduler {
+        database(db)
+        knownTasks(*tasks.toTypedArray())
+        startupTasks(*startupTasks.toTypedArray())
+        name(name)
+        clock(clock)
+        shutdownMaxWait(1.seconds)
+      }
     }
 
   override fun afterSpec(f: suspend (Spec) -> Unit) {
