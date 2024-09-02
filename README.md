@@ -1,6 +1,6 @@
 # Additions For Db Scheduler
 
-This is a WIP project to add support for additional databases and a Ktor UI plugin for the [Db Scheduler](https://github.com/kagkarlsson/db-scheduler) project.
+This project aims to add support for additional databases and a Ktor UI plugin for the [Db Scheduler](https://github.com/kagkarlsson/db-scheduler) project. If you find any bug please report it.
 
 ## UI Ktor Plugin
 
@@ -21,9 +21,60 @@ install(DbSchedulerUI) {
 
 ## Couchbase
 
-_In Progress_
+```kotlin
+implementation("io.github.osoykan:db-scheduler-couchbase:$version")
+```
+
+```kotlin
+scheduler {
+  val couchbase = Couchbase(cluster, "bucket-name", "collection-name")
+  database(couchbase)
+  knownTasks(*tasks.toTypedArray())
+  startupTasks(*startupTasks.toTypedArray())
+  name(name)
+  clock(clock)
+  shutdownMaxWait(1.seconds)
+  fixedThreadPoolSize(5)
+  corePoolSize(1)
+  heartbeatInterval(2.seconds)
+  executeDue(2.seconds)
+  deleteUnresolvedAfter(1.seconds)
+  logLevel(LogLevel.TRACE)
+  logStackTrace(true)
+  shutdownMaxWait(1.minutes)
+  numberOfMissedHeartbeatsBeforeDead(3)
+  listeners(emptyList())
+  meterRegistry(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+}
+```
 
 ## Mongo
 
-_In Progress_
+```kotlin
+implementation("io.github.osoykan:db-scheduler-mongo:$version")
+```
+
+```kotlin
+scheduler {
+  val mongo = Mongo(client, "database-name", "collection-name")
+  database(mongo)
+  knownTasks(*tasks.toTypedArray())
+  startupTasks(*startupTasks.toTypedArray())
+  name(name)
+  clock(clock)
+  shutdownMaxWait(1.seconds)
+  fixedThreadPoolSize(5)
+  corePoolSize(1)
+  heartbeatInterval(2.seconds)
+  executeDue(2.seconds)
+  deleteUnresolvedAfter(1.seconds)
+  logLevel(LogLevel.TRACE)
+  logStackTrace(true)
+  shutdownMaxWait(1.minutes)
+  numberOfMissedHeartbeatsBeforeDead(3)
+  listeners(emptyList())
+  meterRegistry(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+}
+```
+
 
