@@ -489,7 +489,8 @@ class CouchbaseTaskRepository(
   }
 
   private class UnresolvedFilter(val unresolved: List<UnresolvedTask>) {
-    override fun toString(): String = "taskName not in (${unresolved.joinToString(", ") { "'${it.taskName}'" }})"
+    override fun toString(): String =
+      "c.${TaskEntity::taskName.name} not in (${unresolved.joinToString(", ") { "'${it.taskName}'" }})"
   }
 
   private suspend fun Cluster.waitForKeySpaceAvailability(

@@ -452,6 +452,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       }
     }.awaitAll()
 
+    delay(5.seconds) // Give some time to ensure the tasks are not executed
+
     val tasks = mutableListOf<ScheduledExecution<*>>()
     scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
       tasks.add(it)
