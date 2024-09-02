@@ -40,7 +40,6 @@ class CouchbaseTaskRepository(
   private val Collection.fullName: String get() = "`${couchbase.bucketName}`.`${scope.name}`.`$name`"
   private val cluster: Cluster by lazy { couchbase.cluster }
 
-  @Suppress("SwallowedException")
   override suspend fun createIfNotExists(
     execution: SchedulableInstance<*>
   ): Boolean = getOption(execution.documentId())
@@ -128,7 +127,7 @@ class CouchbaseTaskRepository(
     filter: ScheduledExecutionsFilter,
     consumer: Consumer<Execution>
   ) {
-    val pickedCondition = filter.pickedValue.asArrow().map { "c.${TaskEntity::picked.name} = $it" }.getOrElse { "" }
+    val pickedCondition = filter.asCondition(taskResolver)
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
@@ -150,7 +149,7 @@ class CouchbaseTaskRepository(
     taskName: String,
     consumer: Consumer<Execution>
   ) {
-    val pickedCondition = filter.pickedValue.asArrow().map { "c.${TaskEntity::picked.name} = $it" }.getOrElse { "" }
+    val pickedCondition = filter.asCondition(taskResolver)
     val query = buildString {
       append(SELECT_FROM_WITH_META)
       append(" ${collection.fullName} c")
@@ -548,5 +547,19 @@ class CouchbaseTaskRepository(
     }
 
     throw TimeoutException("Timed out waiting for the operation!")
+  }
+
+  private fun ScheduledExecutionsFilter.asCondition(taskResolver: TaskResolver): String = buildString {
+    pickedValue.asArrow()
+      .map { picked ->
+        append("c.${TaskEntity::picked.name} = $picked")
+        if (includeUnresolved && taskResolver.unresolved.isNotEmpty()) append(" AND ")
+      }
+
+    if (includeUnresolved && taskResolver.unresolved.isNotEmpty()) {
+      append("c.${TaskEntity::taskName.name} NOT IN (")
+      append(taskResolver.unresolved.joinToString(", ") { "'${it.taskName}'" })
+      append(")")
+    }
   }
 }

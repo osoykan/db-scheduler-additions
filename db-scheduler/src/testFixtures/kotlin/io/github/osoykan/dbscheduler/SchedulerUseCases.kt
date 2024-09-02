@@ -429,4 +429,34 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     scheduler.stop()
   }
+
+  @Test
+  suspend fun `should return unresolved tasks`() = coroutineScope {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db.withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val amountOfUnresolvedTasks = 10
+    val task = Tasks.oneTime("Unresolved Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> }
+
+    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock)
+      .also { it.start() }
+
+    (1..amountOfUnresolvedTasks).map {
+      async {
+        val scheduledTask = task.instance("unresolved-task-$it-${UUID.randomUUID()}", TestTaskData("test-$it"))
+        scheduler.schedule(scheduledTask, Instant.now().plusMillis(200))
+      }
+    }.awaitAll()
+
+    val tasks = mutableListOf<ScheduledExecution<*>>()
+    scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
+      tasks.add(it)
+    }
+    tasks.size shouldBe amountOfUnresolvedTasks
+    scheduler.stop()
+  }
 }

@@ -28,11 +28,11 @@ class MongoTaskEntity
     @BsonProperty("lastHeartbeat")
     override val lastHeartbeat: Instant?,
     @BsonProperty("version")
-    override val version: Long = 0,
+    override val version: Long,
     @BsonProperty("metadata")
     override val metadata: MutableMap<String, Any> = mutableMapOf(),
     @BsonProperty("identity")
-    override val identity: String = "$taskName-$taskInstance"
+    override val identity: String = documentId(taskName, taskInstance)
   ) : TaskEntity(
       taskName,
       taskInstance,

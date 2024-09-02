@@ -14,9 +14,9 @@ internal class CouchbaseTaskEntity(
   override val lastSuccess: Instant?,
   override val lastFailure: Instant?,
   override val lastHeartbeat: Instant?,
-  override val version: Long = 0,
+  override val version: Long,
   override val metadata: MutableMap<String, Any> = mutableMapOf(),
-  override val identity: String = "$taskName-$taskInstance"
+  override val identity: String = documentId(taskName, taskInstance)
 ) : TaskEntity(
     taskName,
     taskInstance,
