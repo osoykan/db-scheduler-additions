@@ -15,6 +15,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.*
 import java.time.*
 import java.util.*
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
@@ -445,14 +446,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock)
       .also { it.start() }
 
+    val executionTime = Instant.now().plusSeconds(10.days.inWholeSeconds)
     (1..amountOfUnresolvedTasks).map {
       async {
         val scheduledTask = task.instance("unresolved-task-$it-${UUID.randomUUID()}", TestTaskData("test-$it"))
-        scheduler.schedule(scheduledTask, Instant.now().plusMillis(200))
+        scheduler.schedule(scheduledTask, executionTime)
       }
     }.awaitAll()
-
-    delay(5.seconds) // Give some time to ensure the tasks are not executed
 
     val tasks = mutableListOf<ScheduledExecution<*>>()
     scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
