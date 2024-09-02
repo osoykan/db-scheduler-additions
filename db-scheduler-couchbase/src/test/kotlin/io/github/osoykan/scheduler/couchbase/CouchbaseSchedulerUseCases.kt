@@ -59,7 +59,7 @@ class CouchbaseSchedulerUseCases : SchedulerUseCases<Couchbase>() {
       name(name)
       clock(clock)
       shutdownMaxWait(1.seconds)
-      deleteUnresolvedAfter(1.minutes)
+      deleteUnresolvedAfter(10.minutes)
     }
   }
 }
