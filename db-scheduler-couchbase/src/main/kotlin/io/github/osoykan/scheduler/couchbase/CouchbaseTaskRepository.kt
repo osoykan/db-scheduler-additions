@@ -387,7 +387,7 @@ class CouchbaseTaskRepository(
           fields = it.fields,
           ignoreIfExists = it.ignoreIfExists,
           numReplicas = 0,
-          deferred = false
+          deferred = true
         )
       }
       logger.debug("Index {} created", it.name)
