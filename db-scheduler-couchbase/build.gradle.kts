@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-  implementation(projects.dbScheduler)
+  api(projects.dbScheduler)
   implementation(libs.couchbase.client.kotlin)
   implementation(libs.slf4j.api)
   implementation(libs.arrow.core)
