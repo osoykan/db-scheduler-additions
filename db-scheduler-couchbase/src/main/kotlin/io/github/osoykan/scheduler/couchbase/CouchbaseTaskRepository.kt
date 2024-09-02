@@ -375,10 +375,13 @@ class CouchbaseTaskRepository(
 
     data class Index(val name: String, val fields: List<String>, val ignoreIfExists: Boolean = true)
     listOf(
-      Index("idx_is_picked", listOf(TaskEntity::picked.name)),
+      Index("idx_is_picked_executionTime", listOf(TaskEntity::picked.name, TaskEntity::executionTime.name)),
+      Index("idx_is_picked_lastHeartbeat", listOf(TaskEntity::picked.name, TaskEntity::lastHeartbeat.name)),
       Index("idx_execution_time", listOf(TaskEntity::executionTime.name)),
       Index("idx_last_heartbeat", listOf(TaskEntity::lastHeartbeat.name)),
-      Index("idx_task_name", listOf(TaskEntity::taskName.name))
+      Index("idx_task_name", listOf(TaskEntity::taskName.name)),
+      Index("idx_identity_name", listOf(TaskEntity::taskName.name, TaskEntity::taskInstance.name)),
+      Index("idx_identity", listOf(TaskEntity::identity.name))
     ).onEach {
       logger.debug("Creating index {}", it.name)
       collection.waitUntilIndexIsCreated(logger = { m -> logger.debug(m) }) {

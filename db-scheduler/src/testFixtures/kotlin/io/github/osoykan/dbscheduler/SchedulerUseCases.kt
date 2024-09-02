@@ -454,11 +454,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       }
     }.awaitAll()
 
-    val tasks = mutableListOf<ScheduledExecution<*>>()
-    scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
-      tasks.add(it)
+    eventually(1.minutes) {
+      val tasks = mutableListOf<ScheduledExecution<*>>()
+      scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
+        tasks.add(it)
+      }
+      tasks.size shouldBe amountOfUnresolvedTasks
     }
-    tasks.size shouldBe amountOfUnresolvedTasks
     scheduler.stop()
   }
 }

@@ -1,7 +1,6 @@
 package io.github.osoykan.scheduler.couchbase
 
 import arrow.core.raise.option
-import arrow.core.toOption
 import com.couchbase.client.core.io.CollectionIdentifier
 import com.couchbase.client.kotlin.*
 import com.couchbase.client.kotlin.Collection
@@ -22,11 +21,10 @@ data class Couchbase(
   private val logger = LoggerFactory.getLogger(Couchbase::class.java)
   private val bucket = cluster.bucket(bucketName)
   private val defaultScope = bucket.defaultScope()
-  val schedulerCollection: Collection by lazy { collection.let { cluster.bucket(bucketName).collection(it) } }
+  val schedulerCollection: Collection by lazy { cluster.bucket(bucketName).collection(collection) }
 
   override suspend fun ensureCollectionExists() {
     option {
-      val collection = collection.toOption().bind()
       val exists = bucket.collections.getScope(defaultScope.name).collections.any { it.name == collection }
       if (exists) {
         logger.debug("Collection $collection already exists")
