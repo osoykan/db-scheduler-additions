@@ -9,17 +9,13 @@ import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
 import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoCollection
-import io.github.osoykan.scheduler.CoroutineTaskRepository
-import io.github.osoykan.scheduler.TaskEntity
-import io.github.osoykan.scheduler.asJava
-import io.github.osoykan.scheduler.documentId
+import io.github.osoykan.scheduler.*
 import kotlinx.coroutines.flow.*
 import org.bson.conversions.Bson
 import org.slf4j.LoggerFactory
 import java.time.*
 import java.util.*
 import java.util.function.Consumer
-import kotlin.jvm.optionals.getOrElse
 
 class MongoTaskRepository(
   private val clock: Clock,
@@ -92,10 +88,9 @@ class MongoTaskRepository(
     filter: ScheduledExecutionsFilter,
     consumer: Consumer<Execution>
   ) {
-    val f = filter.pickedValue.map { Filters.eq(MongoTaskEntity::picked.name, it) }.getOrElse { Filters.empty() }
     collection
-      .find(f)
-      .sort(Sorts.ascending("executionTime"))
+      .find(filter.asFilterBson())
+      .sort(Sorts.ascending(TaskEntity::executionTime.name))
       .map { toExecution(it) }
       .collect { consumer.accept(it) }
   }
@@ -105,9 +100,8 @@ class MongoTaskRepository(
     taskName: String,
     consumer: Consumer<Execution>
   ) {
-    val f = filter.pickedValue.map { Filters.eq(MongoTaskEntity::picked.name, it) }.getOrElse { Filters.empty() }
     collection
-      .find(Filters.and(Filters.eq(MongoTaskEntity::taskName.name, taskName), f))
+      .find(Filters.and(Filters.eq(MongoTaskEntity::taskName.name, taskName), filter.asFilterBson()))
       .sort(Sorts.ascending(MongoTaskEntity::executionTime.name))
       .map { toExecution(it) }
       .collect { consumer.accept(it) }
@@ -401,6 +395,20 @@ class MongoTaskRepository(
 
   private class UnresolvedFilter(private val unresolved: List<UnresolvedTask>) {
     fun asFilter(): Bson = Filters.nin(MongoTaskEntity::taskName.name, unresolved.map { it.taskName })
+  }
+
+  private fun ScheduledExecutionsFilter.asFilterBson(): Bson {
+    val filter = pickedValue.asArrow()
+      .fold(
+        { Filters.empty() },
+        { Filters.eq(MongoTaskEntity::picked.name, it) }
+      )
+
+    if (!includeUnresolved && taskResolver.unresolved.isNotEmpty()) {
+      val unresolvedFilter = Filters.nin(MongoTaskEntity::taskName.name, taskResolver.unresolved.map { it.taskName })
+      return Filters.and(filter, unresolvedFilter)
+    }
+    return filter
   }
 
   companion object {

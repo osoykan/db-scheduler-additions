@@ -14,6 +14,7 @@ import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
 import io.github.osoykan.scheduler.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import org.slf4j.LoggerFactory
 import java.time.*
 import java.util.*
@@ -72,10 +73,10 @@ class CouchbaseTaskRepository(
       append(" ORDER BY c.${TaskEntity::executionTime.name}")
       append(" LIMIT \$limit")
     }
-    return queryFor<CouchbaseTaskEntity>(
+    return queryAsFlow<CouchbaseTaskEntity>(
       query,
       QueryParameters.named(mapOf("now" to now, "limit" to limit))
-    ).map { toExecution(it) }
+    ).map { toExecution(it) }.toList()
   }
 
   @Suppress("ThrowsCount")
@@ -139,9 +140,9 @@ class CouchbaseTaskRepository(
       append(" ORDER BY c.${TaskEntity::executionTime.name}")
     }
 
-    queryFor<CouchbaseTaskEntity>(query)
+    queryAsFlow<CouchbaseTaskEntity>(query)
       .map { toExecution(it) }
-      .forEach { consumer.accept(it) }
+      .collect { consumer.accept(it) }
   }
 
   override suspend fun getScheduledExecutions(
@@ -162,10 +163,10 @@ class CouchbaseTaskRepository(
       append(" ORDER BY c.${TaskEntity::executionTime.name}")
     }
 
-    queryFor<CouchbaseTaskEntity>(
+    queryAsFlow<CouchbaseTaskEntity>(
       query,
       parameters = QueryParameters.named(mapOf("taskName" to taskName))
-    ).map { toExecution(it) }.forEach { consumer.accept(it) }
+    ).map { toExecution(it) }.collect { consumer.accept(it) }
   }
 
   override suspend fun lockAndFetchGeneric(
@@ -187,7 +188,7 @@ class CouchbaseTaskRepository(
       append(" LIMIT \$limit")
     }
 
-    val candidates = queryFor<CouchbaseTaskEntity>(
+    val candidates = queryAsFlow<CouchbaseTaskEntity>(
       query,
       parameters = QueryParameters.named(
         mapOf(
@@ -195,7 +196,7 @@ class CouchbaseTaskRepository(
           "limit" to limit
         )
       )
-    ).map { toExecution(it) }
+    ).map { toExecution(it) }.toList()
 
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
@@ -211,6 +212,7 @@ class CouchbaseTaskRepository(
         )
       }
     }.filter { it.isSome() }.mapNotNull { it.getOrNull() }
+      .toList()
 
     if (updated.size != candidates.size) {
       logger.error(
@@ -306,8 +308,8 @@ class CouchbaseTaskRepository(
       append(" ORDER BY c.lastHeartbeat")
     }
 
-    return queryFor<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("olderThan" to olderThan)))
-      .map { toExecution(it) }
+    return queryAsFlow<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("olderThan" to olderThan)))
+      .map { toExecution(it) }.toList()
   }
 
   override suspend fun updateHeartbeatWithRetry(
@@ -346,8 +348,9 @@ class CouchbaseTaskRepository(
       append(" OR (c.${TaskEntity::lastFailure.name} IS NOT NULL AND c.${TaskEntity::lastSuccess.name} < \$boundary)")
     }
     val boundary = clock.now().minus(interval)
-    return queryFor<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("boundary" to boundary)))
+    return queryAsFlow<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("boundary" to boundary)))
       .map { toExecution(it) }
+      .toList()
   }
 
   override suspend fun removeExecutions(taskName: String): Int {
@@ -360,8 +363,7 @@ class CouchbaseTaskRepository(
     val result = cluster.query(
       query,
       readonly = false,
-      parameters = QueryParameters.named(mapOf("taskName" to taskName)),
-      consistency = QueryScanConsistency.requestPlus()
+      parameters = QueryParameters.named(mapOf("taskName" to taskName))
     ).execute().rows.count()
     return result
   }
@@ -397,17 +399,18 @@ class CouchbaseTaskRepository(
     }
   }
 
-  private suspend inline fun <reified T> queryFor(
+  private inline fun <reified T> queryAsFlow(
     query: String,
     parameters: QueryParameters = QueryParameters.None
-  ): List<T> = cluster.query(
-    query,
-    consistency = QueryScanConsistency.requestPlus(),
-    parameters = parameters,
-    readonly = true
-  ).execute()
-    .rows
-    .mapNotNull { serializer.deserialize(T::class.java, it.content) }
+  ) = flow {
+    cluster.query(
+      query,
+      parameters = parameters,
+      readonly = true
+    ).execute {
+      emit(serializer.deserialize(T::class.java, it.content))
+    }
+  }
 
   private suspend fun getOption(id: String): Option<CouchbaseTaskEntity> =
     Either.catch { collection.get(id) }
@@ -557,10 +560,10 @@ class CouchbaseTaskRepository(
     pickedValue.asArrow()
       .map { picked ->
         append("c.${TaskEntity::picked.name} = $picked")
-        if (includeUnresolved && taskResolver.unresolved.isNotEmpty()) append(" AND ")
+        if (!includeUnresolved && taskResolver.unresolved.isNotEmpty()) append(" AND ")
       }
 
-    if (includeUnresolved && taskResolver.unresolved.isNotEmpty()) {
+    if (!includeUnresolved && taskResolver.unresolved.isNotEmpty()) {
       append("c.${TaskEntity::taskName.name} NOT IN (")
       append(taskResolver.unresolved.joinToString(", ") { "'${it.taskName}'" })
       append(")")
