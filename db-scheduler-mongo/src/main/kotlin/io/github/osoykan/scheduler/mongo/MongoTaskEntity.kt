@@ -1,6 +1,6 @@
 package io.github.osoykan.scheduler.mongo
 
-import io.github.osoykan.dbscheduler.common.TaskEntity
+import io.github.osoykan.dbscheduler.TaskEntity
 import org.bson.codecs.pojo.annotations.*
 import java.time.Instant
 

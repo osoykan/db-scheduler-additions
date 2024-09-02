@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.common
+package io.github.osoykan.dbscheduler
 
 import arrow.atomic.AtomicInt
 import com.github.kagkarlsson.scheduler.*
@@ -162,24 +162,28 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     val count = 200
     val tasks = (1..count)
-    val time = Instant.now()
-
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock) as SchedulerClient
+    val settableClock = SettableClock(Instant.now())
+    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, settableClock) as SchedulerClient
     tasks.map { i ->
       async {
-        scheduler.scheduleIfNotExists(task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")), time)
+        scheduler.scheduleIfNotExists(
+          task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
+          settableClock.now().plusSeconds(10)
+        )
       }
     }.awaitAll()
 
-    val scheduler1 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 1", systemClock)
-    val scheduler2 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 2", systemClock)
-    val scheduler3 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 3", systemClock)
+    val scheduler1 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 1", settableClock)
+    val scheduler2 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 2", settableClock)
+    val scheduler3 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 3", settableClock)
 
     awaitAll(
       async { scheduler1.start() },
       async { scheduler2.start() },
       async { scheduler3.start() }
     )
+
+    settableClock.set(Instant.now().plusSeconds(15))
 
     eventually(1.minutes) {
       executionCount.get() shouldBe count

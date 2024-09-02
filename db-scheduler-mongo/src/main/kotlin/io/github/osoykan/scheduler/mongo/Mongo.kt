@@ -4,7 +4,7 @@ import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
 import com.mongodb.kotlin.client.coroutine.*
-import io.github.osoykan.dbscheduler.common.*
+import io.github.osoykan.dbscheduler.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.toList
 import org.slf4j.LoggerFactory

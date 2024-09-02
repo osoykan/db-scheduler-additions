@@ -2,7 +2,7 @@ package io.github.osoykan.scheduler.mongo
 
 import com.mongodb.*
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import io.github.osoykan.dbscheduler.common.*
+import io.github.osoykan.dbscheduler.*
 import io.kotest.core.spec.Spec
 import org.bson.UuidRepresentation
 import org.testcontainers.containers.MongoDBContainer

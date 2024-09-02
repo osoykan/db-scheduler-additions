@@ -1,6 +1,6 @@
 @file:Suppress("LeakingThis")
 
-package io.github.osoykan.dbscheduler.common
+package io.github.osoykan.dbscheduler
 
 import io.kotest.common.ExperimentalKotest
 import io.kotest.core.config.AbstractProjectConfig

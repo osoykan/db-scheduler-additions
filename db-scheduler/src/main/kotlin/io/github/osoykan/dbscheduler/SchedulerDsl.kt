@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.common
+package io.github.osoykan.dbscheduler
 
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.github.kagkarlsson.scheduler.*

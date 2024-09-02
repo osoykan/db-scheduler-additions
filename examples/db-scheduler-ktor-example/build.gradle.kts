@@ -37,7 +37,6 @@ dependencies {
 dependencies {
   testImplementation(libs.kotest.framework.api.jvm)
   testImplementation(libs.kotest.runner.junit5)
-  testImplementation(libs.stove.testing)
   testImplementation(libs.logback.classic)
   testImplementation(libs.janino)
 }

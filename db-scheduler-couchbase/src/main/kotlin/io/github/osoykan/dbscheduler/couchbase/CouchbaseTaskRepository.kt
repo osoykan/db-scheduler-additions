@@ -12,7 +12,7 @@ import com.github.kagkarlsson.scheduler.TaskResolver.UnresolvedTask
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
-import io.github.osoykan.dbscheduler.common.*
+import io.github.osoykan.dbscheduler.*
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.time.*

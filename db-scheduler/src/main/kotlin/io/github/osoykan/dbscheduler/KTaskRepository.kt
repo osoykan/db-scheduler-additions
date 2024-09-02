@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.common
+package io.github.osoykan.dbscheduler
 
 import arrow.core.*
 import com.github.kagkarlsson.scheduler.*

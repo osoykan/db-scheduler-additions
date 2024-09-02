@@ -3,7 +3,7 @@ package io.github.osoykan.dbscheduler.couchbase
 import com.couchbase.client.kotlin.Cluster
 import com.couchbase.client.kotlin.codec.*
 import com.github.kagkarlsson.scheduler.serializer.JacksonSerializer.getDefaultObjectMapper
-import io.github.osoykan.dbscheduler.common.*
+import io.github.osoykan.dbscheduler.*
 import io.kotest.core.spec.Spec
 import org.testcontainers.couchbase.*
 import org.testcontainers.utility.DockerImageName
