@@ -5,7 +5,9 @@ plugins {
 
 dependencies {
   api(libs.dbScheduler)
+  api(libs.jackson.kotlin)
   api(libs.kotlinx.coroutines.core)
+  api(libs.micrometer.prometheus)
   implementation(libs.slf4j.api)
   implementation(libs.arrow.core)
 }
