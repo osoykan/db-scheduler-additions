@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.couchbase
+package io.github.osoykan.scheduler.couchbase
 
 import arrow.core.*
 import com.couchbase.client.core.error.*
@@ -12,7 +12,7 @@ import com.github.kagkarlsson.scheduler.TaskResolver.UnresolvedTask
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceException
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
-import io.github.osoykan.dbscheduler.*
+import io.github.osoykan.scheduler.*
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.time.*

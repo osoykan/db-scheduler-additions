@@ -1,6 +1,6 @@
-package io.github.osoykan.dbscheduler.ui.ktor.routing
+package io.github.osoykan.scheduler.ui.ktor.routing
 
-import io.github.osoykan.dbscheduler.ui.ktor.DbSchedulerUIConfiguration
+import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUIConfiguration
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*

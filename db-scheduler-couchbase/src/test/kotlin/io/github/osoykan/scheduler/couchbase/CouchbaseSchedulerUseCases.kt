@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.couchbase
+package io.github.osoykan.scheduler.couchbase
 
 import com.couchbase.client.kotlin.Cluster
 import com.couchbase.client.kotlin.codec.*

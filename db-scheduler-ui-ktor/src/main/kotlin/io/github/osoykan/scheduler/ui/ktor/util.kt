@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.ui.ktor
+package io.github.osoykan.scheduler.ui.ktor
 
 import io.ktor.server.application.*
 import io.ktor.util.*

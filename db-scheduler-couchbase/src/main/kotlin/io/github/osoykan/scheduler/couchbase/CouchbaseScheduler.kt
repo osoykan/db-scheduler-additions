@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.couchbase
+package io.github.osoykan.scheduler.couchbase
 
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.event.*

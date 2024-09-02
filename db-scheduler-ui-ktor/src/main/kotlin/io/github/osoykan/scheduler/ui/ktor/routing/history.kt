@@ -1,6 +1,6 @@
-package io.github.osoykan.dbscheduler.ui.ktor.routing
+package io.github.osoykan.scheduler.ui.ktor.routing
 
-import io.github.osoykan.dbscheduler.ui.ktor.receiveParametersTyped
+import io.github.osoykan.scheduler.ui.ktor.receiveParametersTyped
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import no.bekk.dbscheduler.ui.model.TaskDetailsRequestParams

@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler
+package io.github.osoykan.scheduler
 
 import arrow.core.Option
 import java.util.*

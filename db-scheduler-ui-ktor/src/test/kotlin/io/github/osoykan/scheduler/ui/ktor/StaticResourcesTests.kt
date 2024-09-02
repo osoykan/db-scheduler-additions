@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.ui.ktor
+package io.github.osoykan.scheduler.ui.ktor
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.string.shouldContain

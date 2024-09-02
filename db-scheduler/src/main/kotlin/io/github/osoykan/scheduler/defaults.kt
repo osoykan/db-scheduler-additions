@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler
+package io.github.osoykan.scheduler
 
 import com.github.kagkarlsson.scheduler.Clock
 import java.time.*

@@ -52,9 +52,11 @@ subprojects {
 }
 
 val publishedProjects = listOf(
-  projects.dbSchedulerUiKtor.name
+  projects.dbScheduler.name,
+  projects.dbSchedulerMongo.name,
+  projects.dbSchedulerCouchbase.name,
+  projects.dbSchedulerUiKtor.name,
 )
-
 
 subprojects.of(projects.dbSchedulerAdditions.name, filter = { p -> publishedProjects.contains(p.name) }) {
   apply {

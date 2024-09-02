@@ -7,6 +7,7 @@ import com.github.kagkarlsson.scheduler.task.FailureHandler.MaxRetriesFailureHan
 import com.github.kagkarlsson.scheduler.task.Task
 import com.github.kagkarlsson.scheduler.task.helper.*
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
+import io.github.osoykan.scheduler.DocumentDatabase
 import io.kotest.assertions.nondeterministic.*
 import io.kotest.core.spec.style.AnnotationSpec
 import io.kotest.matchers.ints.shouldNotBeGreaterThan

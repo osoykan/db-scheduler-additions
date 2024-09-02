@@ -5,7 +5,7 @@ import com.github.kagkarlsson.scheduler.task.Task
 import com.github.kagkarlsson.scheduler.task.helper.*
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay
 import com.zaxxer.hikari.*
-import io.github.osoykan.dbscheduler.ui.ktor.DbSchedulerUI
+import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUI
 import io.ktor.http.*
 import io.ktor.serialization.jackson.*
 import io.ktor.server.application.*

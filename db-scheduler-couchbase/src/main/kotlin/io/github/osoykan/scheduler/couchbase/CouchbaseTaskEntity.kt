@@ -1,6 +1,6 @@
-package io.github.osoykan.dbscheduler.couchbase
+package io.github.osoykan.scheduler.couchbase
 
-import io.github.osoykan.dbscheduler.TaskEntity
+import io.github.osoykan.scheduler.TaskEntity
 import java.time.Instant
 
 internal class CouchbaseTaskEntity(

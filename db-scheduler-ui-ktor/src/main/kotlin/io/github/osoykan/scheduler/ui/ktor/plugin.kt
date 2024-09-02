@@ -1,8 +1,8 @@
-package io.github.osoykan.dbscheduler.ui.ktor
+package io.github.osoykan.scheduler.ui.ktor
 
 import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.serializer.Serializer
-import io.github.osoykan.dbscheduler.ui.ktor.routing.configureRouting
+import io.github.osoykan.scheduler.ui.ktor.routing.configureRouting
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
 import io.ktor.server.routing.*

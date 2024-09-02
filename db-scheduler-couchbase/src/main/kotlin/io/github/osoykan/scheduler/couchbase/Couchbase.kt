@@ -1,4 +1,4 @@
-package io.github.osoykan.dbscheduler.couchbase
+package io.github.osoykan.scheduler.couchbase
 
 import arrow.core.raise.option
 import arrow.core.toOption
@@ -8,7 +8,7 @@ import com.couchbase.client.kotlin.Collection
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
-import io.github.osoykan.dbscheduler.*
+import io.github.osoykan.scheduler.*
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.Executors

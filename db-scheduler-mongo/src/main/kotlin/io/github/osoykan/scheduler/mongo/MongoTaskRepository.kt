@@ -9,10 +9,10 @@ import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
 import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoCollection
-import io.github.osoykan.dbscheduler.CoroutineTaskRepository
-import io.github.osoykan.dbscheduler.TaskEntity
-import io.github.osoykan.dbscheduler.asJava
-import io.github.osoykan.dbscheduler.documentId
+import io.github.osoykan.scheduler.CoroutineTaskRepository
+import io.github.osoykan.scheduler.TaskEntity
+import io.github.osoykan.scheduler.asJava
+import io.github.osoykan.scheduler.documentId
 import kotlinx.coroutines.flow.*
 import org.bson.conversions.Bson
 import org.slf4j.LoggerFactory
