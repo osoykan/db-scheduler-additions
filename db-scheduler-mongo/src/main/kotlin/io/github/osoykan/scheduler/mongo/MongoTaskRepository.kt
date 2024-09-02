@@ -39,7 +39,7 @@ class MongoTaskRepository(
       false
     }.recover {
       val entity: MongoTaskEntity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
-        .copy(picked = false, version = 0)
+        .copy(picked = false)
       collection.insertOne(entity).wasAcknowledged()
     }.getOrElse { false }
 
