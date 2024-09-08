@@ -5,7 +5,7 @@ couchbase-client-kotlin = "1.4.2"
 jackson = "2.17.2"
 arrow = "1.2.4"
 micrometer-prometheus = "1.13.3"
-detekt = "1.23.6"
+detekt = "1.23.7"
 dbscheduler = "14.1.0"
 slf4j = "2.0.16"
 ktor = "2.3.12"
@@ -32,7 +32,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.7" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.8" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
