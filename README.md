@@ -28,6 +28,8 @@ implementation("io.github.osoykan:db-scheduler-couchbase:$version")
 ```kotlin
 scheduler {
   val couchbase = Couchbase(cluster, "bucket-name", "collection-name")
+  couchbase.ensureCollectionExists()
+
   database(couchbase)
   knownTasks(*tasks.toTypedArray())
   startupTasks(*startupTasks.toTypedArray())
@@ -45,6 +47,8 @@ scheduler {
   numberOfMissedHeartbeatsBeforeDead(3)
   listeners(emptyList())
   meterRegistry(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+}.also {
+  it.start()
 }
 ```
 
@@ -57,6 +61,8 @@ implementation("io.github.osoykan:db-scheduler-mongo:$version")
 ```kotlin
 scheduler {
   val mongo = Mongo(client, "database-name", "collection-name")
+  mongo.ensureCollectionExists()
+
   database(mongo)
   knownTasks(*tasks.toTypedArray())
   startupTasks(*startupTasks.toTypedArray())
@@ -74,6 +80,8 @@ scheduler {
   numberOfMissedHeartbeatsBeforeDead(3)
   listeners(emptyList())
   meterRegistry(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+}.also {
+  it.start()
 }
 ```
 
