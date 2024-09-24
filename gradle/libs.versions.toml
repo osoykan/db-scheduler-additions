@@ -10,7 +10,7 @@ dbscheduler = "14.1.0"
 slf4j = "2.0.16"
 ktor = "2.3.12"
 koin = "4.0.0"
-mongodb = "5.1.4"
+mongodb = "5.2.0"
 
 ## test
 kotest = "5.9.1"
