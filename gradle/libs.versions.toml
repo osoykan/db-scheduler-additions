@@ -4,7 +4,7 @@ kotlinx = "1.9.0"
 couchbase-client-kotlin = "1.4.4"
 jackson = "2.18.0"
 arrow = "1.2.4"
-micrometer-prometheus = "1.13.5"
+micrometer-prometheus = "1.13.6"
 detekt = "1.23.7"
 dbscheduler = "14.1.0"
 slf4j = "2.0.16"
@@ -32,7 +32,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.9" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.10" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -81,4 +81,4 @@ testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "6.25.0" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.8.3" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.29.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
