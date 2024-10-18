@@ -16,8 +16,11 @@ install(DbSchedulerUI) {
   scheduler = { get<Scheduler>() } // assuming Koin is in place, but you can provide your instance to the functions.
   dataSource = { get<DataSource>() }
   enabled = true
+  taskData = true
 }
 ```
+> [!WARNING]
+> Enabling `taskData` might cause a peak in memory usage. The issue was discussed at https://github.com/bekk/db-scheduler-ui/issues/121
 
 ## Couchbase
 
