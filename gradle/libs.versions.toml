@@ -2,7 +2,7 @@
 kotlin = "2.0.20"
 kotlinx = "1.9.0"
 couchbase-client-kotlin = "1.4.4"
-jackson = "2.18.0"
+jackson = "2.18.1"
 arrow = "1.2.4"
 micrometer-prometheus = "1.13.6"
 detekt = "1.23.7"
@@ -32,7 +32,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.11" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.12" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -68,7 +68,7 @@ mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-corouti
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
-datafaker = { module = "net.datafaker:datafaker", version = "2.4.0" }
+datafaker = { module = "net.datafaker:datafaker", version = "2.4.1" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.0.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.4" }
