@@ -4,7 +4,7 @@ kotlinx = "1.9.0"
 couchbase-client-kotlin = "1.4.5"
 jackson = "2.18.1"
 arrow = "1.2.4"
-micrometer-prometheus = "1.13.6"
+micrometer-prometheus = "1.14.0"
 detekt = "1.23.7"
 dbscheduler = "14.1.0"
 slf4j = "2.0.16"
@@ -59,7 +59,7 @@ ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", v
 # Others
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
-dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "3.2.0" }
+dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "3.2.1" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
 mongodb-bson-kotlin = { module = "org.mongodb:bson-kotlin", version.ref = "mongodb" }
 mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
