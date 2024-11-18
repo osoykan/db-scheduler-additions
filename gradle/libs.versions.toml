@@ -70,7 +70,7 @@ kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = 
 kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
 datafaker = { module = "net.datafaker:datafaker", version = "2.4.1" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.0" }
-hikari = { module = "com.zaxxer:HikariCP", version = "6.2.0" }
+hikari = { module = "com.zaxxer:HikariCP", version = "6.2.1" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.4" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.3" }
 testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.20.3" }
