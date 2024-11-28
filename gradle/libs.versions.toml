@@ -2,7 +2,7 @@
 kotlin = "2.0.20"
 kotlinx = "1.9.0"
 couchbase-client-kotlin = "1.4.5"
-jackson = "2.18.1"
+jackson = "2.18.2"
 arrow = "1.2.4"
 micrometer-prometheus = "1.14.1"
 detekt = "1.23.7"
