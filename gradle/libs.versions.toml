@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.0.20"
-kotlinx = "1.9.0"
+kotlinx = "1.10.0"
 couchbase-client-kotlin = "1.4.6"
 jackson = "2.18.2"
 arrow = "2.0.0"
