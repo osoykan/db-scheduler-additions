@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.0.20"
-kotlinx = "1.10.0"
+kotlinx = "1.10.1"
 couchbase-client-kotlin = "1.4.6"
 jackson = "2.18.2"
 arrow = "2.0.0"
@@ -9,7 +9,7 @@ detekt = "1.23.7"
 dbscheduler = "15.1.1"
 slf4j = "2.0.16"
 ktor = "2.3.13"
-koin = "4.0.0"
+koin = "4.0.1"
 mongodb = "5.2.1"
 
 ## test
@@ -32,7 +32,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.14" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.15" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
