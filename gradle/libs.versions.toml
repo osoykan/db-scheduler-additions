@@ -78,7 +78,7 @@ testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.20.
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "6.25.0" }
+spotless = { id = "com.diffplug.spotless", version = "7.0.1" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
