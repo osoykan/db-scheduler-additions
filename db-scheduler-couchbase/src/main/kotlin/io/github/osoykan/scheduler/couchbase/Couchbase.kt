@@ -25,7 +25,10 @@ data class Couchbase(
 
   override suspend fun ensureCollectionExists() {
     option {
-      val exists = bucket.collections.getScope(defaultScope.name).collections.any { it.name == collection }
+      val exists = bucket.collections
+        .getScope(defaultScope.name)
+        .collections
+        .any { it.name == collection }
       if (exists) {
         logger.debug("Collection $collection already exists")
         return@option
@@ -58,7 +61,8 @@ class CouchbaseSchedulerDsl : SchedulerDsl<Couchbase>() {
         SupervisorJob() +
         CoroutineName("db-scheduler-$name") +
         CoroutineExceptionHandler { coroutineContext, throwable ->
-          LoggerFactory.getLogger(SchedulerDsl::class.java)
+          LoggerFactory
+            .getLogger(SchedulerDsl::class.java)
             .error("Coroutine failed, context: {}", coroutineContext, throwable)
         }
     )

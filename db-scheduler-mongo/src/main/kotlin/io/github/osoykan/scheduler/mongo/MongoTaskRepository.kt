@@ -39,12 +39,15 @@ class MongoTaskRepository(
       collection.insertOne(entity).wasAcknowledged()
     }.getOrElse { false }
 
-  override suspend fun getDue(now: Instant, limit: Int): List<Execution> = collection.find(
-    Filters.and(
-      Filters.eq(MongoTaskEntity::picked.name, false),
-      Filters.lte(MongoTaskEntity::executionTime.name, now)
-    )
-  ).limit(limit).map { toExecution(it) }.toList()
+  override suspend fun getDue(now: Instant, limit: Int): List<Execution> = collection
+    .find(
+      Filters.and(
+        Filters.eq(MongoTaskEntity::picked.name, false),
+        Filters.lte(MongoTaskEntity::executionTime.name, now)
+      )
+    ).limit(limit)
+    .map { toExecution(it) }
+    .toList()
 
   override suspend fun replace(
     toBeReplaced: Execution,
@@ -119,7 +122,8 @@ class MongoTaskRepository(
     )
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
-    val toBePicked = collection.find(filter)
+    val toBePicked = collection
+      .find(filter)
       .sort(Sorts.ascending(MongoTaskEntity::executionTime.name))
       .limit(limit)
       .toList()
@@ -234,43 +238,45 @@ class MongoTaskRepository(
   override suspend fun pick(
     e: Execution,
     timePicked: Instant
-  ): Optional<Execution> = collection.updateOne(
-    Filters.and(
-      Filters.eq(MongoTaskEntity::identity.name, e.documentId()),
-      Filters.eq(MongoTaskEntity::version.name, e.version),
-      Filters.eq(MongoTaskEntity::picked.name, false)
-    ),
-    Updates.combine(
-      Updates.set(MongoTaskEntity::picked.name, true),
-      Updates.set(MongoTaskEntity::pickedBy.name, schedulerName.name.take(SCHEDULER_NAME_TAKE)),
-      Updates.set(MongoTaskEntity::lastHeartbeat.name, timePicked),
-      Updates.inc(MongoTaskEntity::version.name, 1)
-    )
-  ).let { updated ->
-    if (updated.modifiedCount == 1L) {
-      val maybe = getExecution(e.taskInstance)
-      if (!maybe.isPresent) {
-        error("Unable to find picked execution. Must have been deleted by another thread. Indicates a bug.")
-      } else {
-        if (!maybe.get().isPicked) {
-          error("Execution was not picked after pick operation. Indicates a bug.")
+  ): Optional<Execution> = collection
+    .updateOne(
+      Filters.and(
+        Filters.eq(MongoTaskEntity::identity.name, e.documentId()),
+        Filters.eq(MongoTaskEntity::version.name, e.version),
+        Filters.eq(MongoTaskEntity::picked.name, false)
+      ),
+      Updates.combine(
+        Updates.set(MongoTaskEntity::picked.name, true),
+        Updates.set(MongoTaskEntity::pickedBy.name, schedulerName.name.take(SCHEDULER_NAME_TAKE)),
+        Updates.set(MongoTaskEntity::lastHeartbeat.name, timePicked),
+        Updates.inc(MongoTaskEntity::version.name, 1)
+      )
+    ).let { updated ->
+      if (updated.modifiedCount == 1L) {
+        val maybe = getExecution(e.taskInstance)
+        if (!maybe.isPresent) {
+          error("Unable to find picked execution. Must have been deleted by another thread. Indicates a bug.")
+        } else {
+          if (!maybe.get().isPicked) {
+            error("Execution was not picked after pick operation. Indicates a bug.")
+          }
+          maybe
         }
-        maybe
+      } else {
+        logger.debug("Execution with id {} was already picked", e.documentId())
+        Optional.empty()
       }
-    } else {
-      logger.debug("Execution with id {} was already picked", e.documentId())
-      Optional.empty()
     }
-  }
 
   override suspend fun getDeadExecutions(
     olderThan: Instant
-  ): List<Execution> = collection.find(
-    Filters.and(
-      Filters.eq(MongoTaskEntity::picked.name, true),
-      Filters.lt(MongoTaskEntity::lastHeartbeat.name, olderThan)
-    )
-  ).sort(Sorts.ascending(MongoTaskEntity::lastHeartbeat.name))
+  ): List<Execution> = collection
+    .find(
+      Filters.and(
+        Filters.eq(MongoTaskEntity::picked.name, true),
+        Filters.lt(MongoTaskEntity::lastHeartbeat.name, olderThan)
+      )
+    ).sort(Sorts.ascending(MongoTaskEntity::lastHeartbeat.name))
     .map { toExecution(it) }
     .toList()
 
@@ -299,63 +305,70 @@ class MongoTaskRepository(
     execution: Execution,
     heartbeatTime: Instant
   ): Boolean {
-    collection.updateOne(
-      Filters.and(
-        Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
-        Filters.eq(MongoTaskEntity::version.name, execution.version)
-      ),
-      Updates.combine(
-        Updates.set(MongoTaskEntity::lastHeartbeat.name, heartbeatTime)
-      )
-    ).let { updated ->
-      if (updated.modifiedCount >= 1L) {
-        logger.debug("Heartbeat updated for execution with id {}", execution.documentId())
-        return true
-      } else {
-        logger.debug("Heartbeat update failed for execution with id {}", execution.documentId())
-        return false
+    collection
+      .updateOne(
+        Filters.and(
+          Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
+          Filters.eq(MongoTaskEntity::version.name, execution.version)
+        ),
+        Updates.combine(
+          Updates.set(MongoTaskEntity::lastHeartbeat.name, heartbeatTime)
+        )
+      ).let { updated ->
+        if (updated.modifiedCount >= 1L) {
+          logger.debug("Heartbeat updated for execution with id {}", execution.documentId())
+          return true
+        } else {
+          logger.debug("Heartbeat update failed for execution with id {}", execution.documentId())
+          return false
+        }
       }
-    }
   }
 
   override suspend fun getExecutionsFailingLongerThan(interval: Duration): List<Execution> {
     val boundary = clock.now().minus(interval)
-    return collection.find(
-      Filters.or(
-        Filters.and(
-          Filters.exists(MongoTaskEntity::lastFailure.name),
-          Filters.lt(MongoTaskEntity::lastSuccess.name, boundary)
-        ),
-        Filters.and(
-          Filters.exists(MongoTaskEntity::lastFailure.name),
-          Filters.lt(MongoTaskEntity::lastFailure.name, boundary)
+    return collection
+      .find(
+        Filters.or(
+          Filters.and(
+            Filters.exists(MongoTaskEntity::lastFailure.name),
+            Filters.lt(MongoTaskEntity::lastSuccess.name, boundary)
+          ),
+          Filters.and(
+            Filters.exists(MongoTaskEntity::lastFailure.name),
+            Filters.lt(MongoTaskEntity::lastFailure.name, boundary)
+          )
         )
-      )
-    ).map { toExecution(it) }.toList()
+      ).map { toExecution(it) }
+      .toList()
   }
 
-  override suspend fun removeExecutions(taskName: String): Int = collection.deleteMany(
-    Filters.eq(MongoTaskEntity::taskName.name, taskName)
-  ).deletedCount.toInt()
+  override suspend fun removeExecutions(taskName: String): Int = collection
+    .deleteMany(
+      Filters.eq(MongoTaskEntity::taskName.name, taskName)
+    ).deletedCount
+    .toInt()
 
   override suspend fun verifySupportsLockAndFetch() {
     logger.info("Mongo supports locking with #getAndLock")
   }
 
   override suspend fun createIndexes() {
-    collection.createIndexes(
-      listOf(
-        IndexModel(Indexes.ascending(MongoTaskEntity::identity.name), IndexOptions().unique(true)),
-        IndexModel(Indexes.ascending(MongoTaskEntity::picked.name), IndexOptions().name("idx_is_picked")),
-        IndexModel(Indexes.ascending(MongoTaskEntity::executionTime.name), IndexOptions().name("idx_execution_time")),
-        IndexModel(Indexes.ascending(MongoTaskEntity::lastHeartbeat.name), IndexOptions().name("idx_last_heartbeat")),
-        IndexModel(Indexes.ascending(MongoTaskEntity::taskName.name), IndexOptions().name("idx_task_name"))
-      )
-    ).toList()
+    collection
+      .createIndexes(
+        listOf(
+          IndexModel(Indexes.ascending(MongoTaskEntity::identity.name), IndexOptions().unique(true)),
+          IndexModel(Indexes.ascending(MongoTaskEntity::picked.name), IndexOptions().name("idx_is_picked")),
+          IndexModel(Indexes.ascending(MongoTaskEntity::executionTime.name), IndexOptions().name("idx_execution_time")),
+          IndexModel(Indexes.ascending(MongoTaskEntity::lastHeartbeat.name), IndexOptions().name("idx_last_heartbeat")),
+          IndexModel(Indexes.ascending(MongoTaskEntity::taskName.name), IndexOptions().name("idx_task_name"))
+        )
+      ).toList()
   }
 
   private suspend fun getOption(id: String): Option<MongoTaskEntity> =
-    collection.find(Filters.eq(MongoTaskEntity::identity.name, id))
+    collection
+      .find(Filters.eq(MongoTaskEntity::identity.name, id))
       .firstOrNull()
       .toOption()
 
@@ -393,12 +406,15 @@ class MongoTaskRepository(
     )
   }
 
-  private class UnresolvedFilter(private val unresolved: List<UnresolvedTask>) {
+  private class UnresolvedFilter(
+    private val unresolved: List<UnresolvedTask>
+  ) {
     fun asFilter(): Bson = Filters.nin(MongoTaskEntity::taskName.name, unresolved.map { it.taskName })
   }
 
   private fun ScheduledExecutionsFilter.asFilterBson(): Bson {
-    val filter = pickedValue.asArrow()
+    val filter = pickedValue
+      .asArrow()
       .fold(
         { Filters.empty() },
         { Filters.eq(MongoTaskEntity::picked.name, it) }

@@ -67,9 +67,7 @@ interface CoroutineTaskRepository {
       @Volatile
       private var initialized = false
 
-      override fun get(): T {
-        return delegate.get()
-      }
+      override fun get(): T = delegate.get()
 
       @Synchronized
       private fun firstTime(): T {

@@ -46,7 +46,8 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
         SupervisorJob() +
         CoroutineName("db-scheduler-$name") +
         CoroutineExceptionHandler { coroutineContext, throwable ->
-          LoggerFactory.getLogger(MongoScheduler::class.java)
+          LoggerFactory
+            .getLogger(MongoScheduler::class.java)
             .error("Coroutine failed, context: {}", coroutineContext, throwable)
         }
     )

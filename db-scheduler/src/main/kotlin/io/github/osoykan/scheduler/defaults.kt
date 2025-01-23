@@ -8,7 +8,9 @@ class UtcClock : Clock {
   override fun now(): Instant = Instant.now().atZone(ZoneOffset.UTC).toInstant()
 }
 
-class NamedThreadFactory(private val name: String) : ThreadFactory {
+class NamedThreadFactory(
+  private val name: String
+) : ThreadFactory {
   private val threadFactory = Executors.defaultThreadFactory()
 
   override fun newThread(r: Runnable): Thread {

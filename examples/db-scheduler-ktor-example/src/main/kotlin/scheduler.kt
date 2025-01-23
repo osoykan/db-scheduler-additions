@@ -30,7 +30,8 @@ private fun dbScheduler(
   recurringTasks: List<RecurringTask<*>>
 ): Scheduler {
   val dataSource = dataSource(postgresConfig)
-  return Scheduler.create(dataSource, tasks)
+  return Scheduler
+    .create(dataSource, tasks)
     .schedulerName(SchedulerName.Hostname())
     .alwaysPersistTimestampInUTC()
     .startTasks(recurringTasks)
@@ -45,17 +46,18 @@ private fun dbScheduler(
 
 private fun dataSource(
   postgresConfig: HikariConfig
-): HikariDataSource = HikariDataSource().apply {
-  jdbcUrl = postgresConfig.jdbcUrl
-  driverClassName = "org.postgresql.Driver"
-  username = postgresConfig.username
-  password = postgresConfig.password
-  maximumPoolSize = postgresConfig.maximumPoolSize
-  minimumIdle = postgresConfig.minimumIdle
-  connectionTimeout = postgresConfig.connectionTimeout.milliseconds.inWholeMilliseconds
-  idleTimeout = postgresConfig.idleTimeout.milliseconds.inWholeMilliseconds
-  maxLifetime = postgresConfig.maxLifetime.milliseconds.inWholeMilliseconds
-}.also { it.validate() }
+): HikariDataSource = HikariDataSource()
+  .apply {
+    jdbcUrl = postgresConfig.jdbcUrl
+    driverClassName = "org.postgresql.Driver"
+    username = postgresConfig.username
+    password = postgresConfig.password
+    maximumPoolSize = postgresConfig.maximumPoolSize
+    minimumIdle = postgresConfig.minimumIdle
+    connectionTimeout = postgresConfig.connectionTimeout.milliseconds.inWholeMilliseconds
+    idleTimeout = postgresConfig.idleTimeout.milliseconds.inWholeMilliseconds
+    maxLifetime = postgresConfig.maxLifetime.milliseconds.inWholeMilliseconds
+  }.also { it.validate() }
 
 private val logger = KotlinLogging.logger("Scheduler")
 
@@ -79,7 +81,11 @@ fun Application.configureDbScheduler() {
 
 private fun createSchemaIfNotExists(postgresConfig: HikariConfig) {
   val readSqlFromResource = { name: String ->
-    object {}.javaClass.getResourceAsStream(name)!!.bufferedReader().use { it.readText() }
+    object {}
+      .javaClass
+      .getResourceAsStream(name)!!
+      .bufferedReader()
+      .use { it.readText() }
   }
   val migration = readSqlFromResource("/dbScheduler.sql")
   val dataSource = dataSource(postgresConfig)

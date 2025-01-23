@@ -25,9 +25,11 @@ import javax.sql.DataSource
 
 fun main() {
   val (hikariConfig, hikariDataSource) = postgresql()
-  val recurringTask = Tasks.recurring("recurring-task", FixedDelay.ofSeconds(10))
+  val recurringTask = Tasks
+    .recurring("recurring-task", FixedDelay.ofSeconds(10))
     .execute { _, _ -> println("Hello, World! from recurring") }
-  val task = Tasks.oneTime("one-time-task")
+  val task = Tasks
+    .oneTime("one-time-task")
     .execute { _, _ -> println("hello from one time task!") }
 
   embeddedServer(Netty, port = 8080) {

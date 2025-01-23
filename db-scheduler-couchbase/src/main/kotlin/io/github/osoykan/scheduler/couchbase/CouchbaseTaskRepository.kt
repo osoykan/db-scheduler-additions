@@ -88,39 +88,40 @@ class CouchbaseTaskRepository(
     val newExecution = Execution(newExecutionTime, newInstance.taskInstance)
     return getLockOption(toBeReplaced.documentId())
       .map { found ->
-        Either.catch {
-          collection.replace(
-            toBeReplaced.documentId(),
-            Content.binary(serializer.serialize(toEntity(newExecution, found.metadata))),
-            cas = found.cas()
-          )
-          newExecutionTime
-        }.mapLeft {
-          when (it) {
-            is DocumentNotFoundException -> {
-              logger.warn("Failed to replace task with id ${toBeReplaced.documentId()}, not found")
-              throw TaskInstanceException(
-                "Task with id ${toBeReplaced.documentId()} not found",
-                toBeReplaced.taskInstance.taskName,
-                toBeReplaced.taskInstance.id
-              )
-            }
+        Either
+          .catch {
+            collection.replace(
+              toBeReplaced.documentId(),
+              Content.binary(serializer.serialize(toEntity(newExecution, found.metadata))),
+              cas = found.cas()
+            )
+            newExecutionTime
+          }.mapLeft {
+            when (it) {
+              is DocumentNotFoundException -> {
+                logger.warn("Failed to replace task with id ${toBeReplaced.documentId()}, not found")
+                throw TaskInstanceException(
+                  "Task with id ${toBeReplaced.documentId()} not found",
+                  toBeReplaced.taskInstance.taskName,
+                  toBeReplaced.taskInstance.id
+                )
+              }
 
-            is CasMismatchException -> {
-              logger.warn("Failed to replace task with id ${toBeReplaced.documentId()}, cas mismatch")
-              throw TaskInstanceException(
-                "Task with id ${toBeReplaced.documentId()} was updated by another process",
-                toBeReplaced.taskInstance.taskName,
-                toBeReplaced.taskInstance.id
-              )
-            }
+              is CasMismatchException -> {
+                logger.warn("Failed to replace task with id ${toBeReplaced.documentId()}, cas mismatch")
+                throw TaskInstanceException(
+                  "Task with id ${toBeReplaced.documentId()} was updated by another process",
+                  toBeReplaced.taskInstance.taskName,
+                  toBeReplaced.taskInstance.id
+                )
+              }
 
-            else -> {
-              logger.error("Failed to replace task with id ${toBeReplaced.documentId()}", it)
-              throw it
+              else -> {
+                logger.error("Failed to replace task with id ${toBeReplaced.documentId()}", it)
+                throw it
+              }
             }
-          }
-        }.merge()
+          }.merge()
       }.getOrElse { error("Task with id ${toBeReplaced.documentId()} not found") }
   }
 
@@ -201,17 +202,19 @@ class CouchbaseTaskRepository(
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
 
-    val updated = candidates.map { candidate ->
-      logger.info("Locking task with id {}", candidate.documentId())
-      getLockAndUpdate(candidate.documentId()) {
-        it.copy(
-          picked = true,
-          pickedBy = pickedBy,
-          lastHeartbeat = lastHeartbeat,
-          version = it.version + 1
-        )
-      }
-    }.filter { it.isSome() }.mapNotNull { it.getOrNull() }
+    val updated = candidates
+      .map { candidate ->
+        logger.info("Locking task with id {}", candidate.documentId())
+        getLockAndUpdate(candidate.documentId()) {
+          it.copy(
+            picked = true,
+            pickedBy = pickedBy,
+            lastHeartbeat = lastHeartbeat,
+            version = it.version + 1
+          )
+        }
+      }.filter { it.isSome() }
+      .mapNotNull { it.getOrNull() }
       .toList()
 
     if (updated.size != candidates.size) {
@@ -230,7 +233,8 @@ class CouchbaseTaskRepository(
   ): List<Execution> = lockAndFetchGeneric(now, limit)
 
   override suspend fun remove(execution: Execution) {
-    Either.catch { collection.remove(execution.documentId()) }
+    Either
+      .catch { collection.remove(execution.documentId()) }
       .mapLeft {
         when (it) {
           is DocumentNotFoundException -> logger.info("Failed to remove task with id ${execution.documentId()}, not found")
@@ -271,16 +275,17 @@ class CouchbaseTaskRepository(
     lastFailure: Instant?,
     consecutiveFailures: Int
   ): Boolean = getLockAndUpdate(execution.documentId()) {
-    it.copy(
-      picked = false,
-      pickedBy = null,
-      lastHeartbeat = null,
-      lastSuccess = lastSuccess,
-      lastFailure = lastFailure,
-      executionTime = nextExecutionTime,
-      consecutiveFailures = consecutiveFailures,
-      version = it.version + 1
-    ).let { data.map { d -> it.copy(taskData = serializer.serialize(d)) }.getOrElse { it } }
+    it
+      .copy(
+        picked = false,
+        pickedBy = null,
+        lastHeartbeat = null,
+        lastSuccess = lastSuccess,
+        lastFailure = lastFailure,
+        executionTime = nextExecutionTime,
+        consecutiveFailures = consecutiveFailures,
+        version = it.version + 1
+      ).let { data.map { d -> it.copy(taskData = serializer.serialize(d)) }.getOrElse { it } }
   }.isSome()
 
   override suspend fun pick(
@@ -309,7 +314,8 @@ class CouchbaseTaskRepository(
     }
 
     return queryAsFlow<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("olderThan" to olderThan)))
-      .map { toExecution(it) }.toList()
+      .map { toExecution(it) }
+      .toList()
   }
 
   override suspend fun updateHeartbeatWithRetry(
@@ -360,11 +366,14 @@ class CouchbaseTaskRepository(
       append(" WHERE c.${TaskEntity::taskName.name} = \$taskName")
       append(" RETURNING *")
     }
-    val result = cluster.query(
-      query,
-      readonly = false,
-      parameters = QueryParameters.named(mapOf("taskName" to taskName))
-    ).execute().rows.count()
+    val result = cluster
+      .query(
+        query,
+        readonly = false,
+        parameters = QueryParameters.named(mapOf("taskName" to taskName))
+      ).execute()
+      .rows
+      .count()
     return result
   }
 
@@ -375,7 +384,11 @@ class CouchbaseTaskRepository(
   override suspend fun createIndexes(): Unit = coroutineScope {
     cluster.waitForKeySpaceAvailability(couchbase.bucketName, couchbase.schedulerCollection.name, 30.seconds, logger = { logger.info(it) })
 
-    data class Index(val name: String, val fields: List<String>, val ignoreIfExists: Boolean = true)
+    data class Index(
+      val name: String,
+      val fields: List<String>,
+      val ignoreIfExists: Boolean = true
+    )
     listOf(
       Index("idx_is_picked_executionTime", listOf(TaskEntity::picked.name, TaskEntity::executionTime.name)),
       Index("idx_is_picked_lastHeartbeat", listOf(TaskEntity::picked.name, TaskEntity::lastHeartbeat.name)),
@@ -403,17 +416,19 @@ class CouchbaseTaskRepository(
     query: String,
     parameters: QueryParameters = QueryParameters.None
   ) = flow {
-    cluster.query(
-      query,
-      parameters = parameters,
-      readonly = true
-    ).execute {
-      emit(serializer.deserialize(T::class.java, it.content))
-    }
+    cluster
+      .query(
+        query,
+        parameters = parameters,
+        readonly = true
+      ).execute {
+        emit(serializer.deserialize(T::class.java, it.content))
+      }
   }
 
   private suspend fun getOption(id: String): Option<CouchbaseTaskEntity> =
-    Either.catch { collection.get(id) }
+    Either
+      .catch { collection.get(id) }
       .mapLeft {
         when (it) {
           is DocumentNotFoundException -> None
@@ -428,7 +443,8 @@ class CouchbaseTaskRepository(
   private suspend fun getLockOption(
     id: String,
     duration: kotlin.time.Duration = 10.seconds
-  ): Option<CouchbaseTaskEntity> = Either.catch { collection.getAndLock(id, duration) }
+  ): Option<CouchbaseTaskEntity> = Either
+    .catch { collection.getAndLock(id, duration) }
     .mapLeft {
       when (it) {
         is DocumentNotFoundException -> None
@@ -444,14 +460,15 @@ class CouchbaseTaskRepository(
     id: String,
     duration: kotlin.time.Duration = 10.seconds,
     block: (CouchbaseTaskEntity) -> CouchbaseTaskEntity
-  ): Option<CouchbaseTaskEntity> = Either.catch {
-    getLockOption(id, duration)
-      .map(block)
-      .map { updated ->
-        val res = collection.replace(id, Content.binary(serializer.serialize(updated)), cas = updated.cas())
-        Pair(updated, res)
-      }
-  }.map { o -> o.map { it.first } }
+  ): Option<CouchbaseTaskEntity> = Either
+    .catch {
+      getLockOption(id, duration)
+        .map(block)
+        .map { updated ->
+          val res = collection.replace(id, Content.binary(serializer.serialize(updated)), cas = updated.cas())
+          Pair(updated, res)
+        }
+    }.map { o -> o.map { it.first } }
     .mapLeft {
       when (it) {
         is DocumentNotFoundException -> None.also { logger.warn("Failed to update task with id $id, not found") }
@@ -494,7 +511,9 @@ class CouchbaseTaskRepository(
     )
   }
 
-  private class UnresolvedFilter(val unresolved: List<UnresolvedTask>) {
+  private class UnresolvedFilter(
+    val unresolved: List<UnresolvedTask>
+  ) {
     override fun toString(): String =
       "c.${TaskEntity::taskName.name} not in (${unresolved.joinToString(", ") { "'${it.taskName}'" }})"
   }
@@ -557,7 +576,8 @@ class CouchbaseTaskRepository(
   }
 
   private fun ScheduledExecutionsFilter.asCondition(taskResolver: TaskResolver): String = buildString {
-    pickedValue.asArrow()
+    pickedValue
+      .asArrow()
       .map { picked ->
         append("c.${TaskEntity::picked.name} = $picked")
         if (!includeUnresolved && taskResolver.unresolved.isNotEmpty()) append(" AND ")

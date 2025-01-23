@@ -33,9 +33,13 @@ data class CaseDefinition<T : DocumentDatabase<T>>(
   val schedulerFactory: SchedulerFactory<T>
 )
 
-data class TestTaskData(val name: String)
+data class TestTaskData(
+  val name: String
+)
 
-class SettableClock(private var instant: Instant) : Clock {
+class SettableClock(
+  private var instant: Instant
+) : Clock {
   override fun now(): Instant = instant
 
   fun set(instant: Instant) {
@@ -53,7 +57,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock)
@@ -67,14 +72,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.oneTime("A One Time Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("A One Time Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusMillis(200))
@@ -96,17 +104,20 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.oneTime("50Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("50Tasks-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
     val amountOfTasks = 50
     val tasks = (1..amountOfTasks)
     val time = Instant.now()
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     tasks.map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
@@ -128,18 +139,21 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.recurring(
-      "A Recurring Task-${UUID.randomUUID()}",
-      Schedules.fixedDelay(3.seconds.toJavaDuration()),
-      TestTaskData::class.java
-    ).initialData(TestTaskData("test"))
+    val task = Tasks
+      .recurring(
+        "A Recurring Task-${UUID.randomUUID()}",
+        Schedules.fixedDelay(3.seconds.toJavaDuration()),
+        TestTaskData::class.java
+      ).initialData(TestTaskData("test"))
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(task), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(), listOf(task), name, systemClock)
       .also { it.start() }
 
     eventually(1.minutes) {
@@ -155,25 +169,28 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.oneTime("RacingTasks-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("RacingTasks-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
     val count = 200
     val tasks = (1..count)
     val settableClock = SettableClock(Instant.now())
     val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, settableClock) as SchedulerClient
-    tasks.map { i ->
-      async {
-        scheduler.scheduleIfNotExists(
-          task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
-          settableClock.now().plusSeconds(10)
-        )
-      }
-    }.awaitAll()
+    tasks
+      .map { i ->
+        async {
+          scheduler.scheduleIfNotExists(
+            task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
+            settableClock.now().plusSeconds(10)
+          )
+        }
+      }.awaitAll()
 
     val scheduler1 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 1", settableClock)
     val scheduler2 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 2", settableClock)
@@ -206,24 +223,26 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
     val maxRetry = 3
     val totalExecutions = maxRetry + 1
-    val task = Tasks.oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .onFailure(
         MaxRetriesFailureHandler(maxRetry) { e, a ->
           a.reschedule(e, Instant.now().plusMillis(100))
         }
-      )
-      .execute { _, _ ->
+      ).execute { _, _ ->
         executionCount.incrementAndGet()
         error("on purpose failure")
       }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     scheduler.schedule(task.instance("failing-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now())
@@ -245,28 +264,30 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
     val maxRetry = 3
     val totalExecutions = maxRetry + 1
-    val task = Tasks.recurring(
-      "Failing Recurring Task-${UUID.randomUUID()}",
-      Schedules.fixedDelay(3.seconds.toJavaDuration()),
-      TestTaskData::class.java
-    ).initialData(TestTaskData("test"))
+    val task = Tasks
+      .recurring(
+        "Failing Recurring Task-${UUID.randomUUID()}",
+        Schedules.fixedDelay(3.seconds.toJavaDuration()),
+        TestTaskData::class.java
+      ).initialData(TestTaskData("test"))
       .onFailure(
         MaxRetriesFailureHandler(maxRetry) { e, a ->
           a.reschedule(e, Instant.now().plusMillis(100))
         }
-      )
-      .execute { _, _ ->
+      ).execute { _, _ ->
         executionCount.incrementAndGet()
         error("on purpose failure")
       }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(task), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(), listOf(task), name, systemClock)
       .also { it.start() }
 
     eventually(1.minutes) {
@@ -286,14 +307,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.oneTime("Persistent Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("Persistent Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     scheduler.schedule(task.instance("persistent-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusSeconds(10))
@@ -317,15 +341,18 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
     val concurrentTasks = 10
-    val task = Tasks.oneTime("Concurrent Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("Concurrent Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     val tasks = (1..concurrentTasks).map {
@@ -349,14 +376,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.oneTime("Cancellable Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("Cancellable Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     val scheduledTask = task.instance("cancellable-task-${UUID.randomUUID()}", TestTaskData("test"))
@@ -381,15 +411,18 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
     val testClock = SettableClock(Instant.now())
-    val task = Tasks.oneTime("Time Skew Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("Time Skew Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock)
       .also { it.start() }
 
     scheduler.schedule(task.instance("time-skew-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusSeconds(30))
@@ -409,14 +442,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val task = Tasks.oneTime("TimeZone Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("TimeZone Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
       .also { it.start() }
 
     val timeZones = listOf(ZoneId.of("UTC"), ZoneId.of("America/New_York"), ZoneId.of("Asia/Tokyo"))
@@ -436,14 +472,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val definition = caseDefinition()
     val collection = ARandom.text()
     val name = ARandom.text()
-    val testContextDb = definition.db.withCollection(collection)
+    val testContextDb = definition.db
+      .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
     val amountOfUnresolvedTasks = 10
-    val task = Tasks.oneTime("Unresolved Task-${UUID.randomUUID()}", TestTaskData::class.java)
+    val task = Tasks
+      .oneTime("Unresolved Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock)
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock)
       .also { it.start() }
 
     val executionTime = Instant.now().plusSeconds(10.days.inWholeSeconds)

@@ -7,7 +7,8 @@ import java.time.Instant
 
 private val loader = object {}.javaClass.classLoader
 
-internal fun getResourceAsText(path: String): String = loader.getResourceAsStream(path)
+internal fun getResourceAsText(path: String): String = loader
+  .getResourceAsStream(path)
   ?.let { r -> r.bufferedReader().use { it.readText() } }
   ?: ""
 
