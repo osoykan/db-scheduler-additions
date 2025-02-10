@@ -6,7 +6,7 @@ jackson = "2.18.2"
 arrow = "2.0.1"
 micrometer-prometheus = "1.14.3"
 detekt = "1.23.7"
-dbscheduler = "15.1.2"
+dbscheduler = "15.2.0"
 slf4j = "2.0.16"
 ktor = "2.3.13"
 koin = "4.0.2"
@@ -59,7 +59,7 @@ ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", v
 # Others
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
-dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "4.0.0" }
+dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "4.1.0" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
 mongodb-bson-kotlin = { module = "org.mongodb:bson-kotlin", version.ref = "mongodb" }
 mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
@@ -69,7 +69,7 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
 datafaker = { module = "net.datafaker:datafaker", version = "2.4.2" }
-kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.3" }
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.4" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.2.1" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.5" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.4" }
