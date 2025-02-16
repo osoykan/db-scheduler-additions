@@ -33,7 +33,7 @@ fun main() {
     .execute { _, _ -> println("hello from one time task!") }
 
   embeddedServer(Netty, port = 8080) {
-    applicationEngineEnvironment {
+    applicationEnvironment {
       log = LoggerFactory.getLogger("DbSchedulerKtorExample")
     }
     install(Koin) {
@@ -56,7 +56,8 @@ fun main() {
       dataSource = { get() }
       enabled = true
     }
-    environment.monitor.subscribe(ApplicationStarted) {
+
+    monitor.subscribe(ApplicationStarted) {
       val scheduler = get<Scheduler>()
       scheduler.schedule(task.instance("new-task"), Instant.now())
     }

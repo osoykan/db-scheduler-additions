@@ -62,7 +62,7 @@ private fun dataSource(
 private val logger = KotlinLogging.logger("Scheduler")
 
 fun Application.configureDbScheduler() {
-  environment.monitor.subscribe(ApplicationStarted) {
+  monitor.subscribe(ApplicationStarted) {
     Either
       .catch {
         val scheduler = get<Scheduler>()
@@ -73,7 +73,7 @@ fun Application.configureDbScheduler() {
       }
   }
 
-  environment.monitor.subscribe(ApplicationStopPreparing) {
+  monitor.subscribe(ApplicationStopPreparing) {
     val scheduler = get<Scheduler>()
     scheduler.stop()
   }
