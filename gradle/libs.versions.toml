@@ -69,16 +69,16 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
 datafaker = { module = "net.datafaker:datafaker", version = "2.4.2" }
-kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.4" }
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.5" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.2.1" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.5" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.5" }
-testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.20.5" }
-testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.20.5" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.6" }
+testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.20.6" }
+testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.20.6" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "7.0.2" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.31.0" }
