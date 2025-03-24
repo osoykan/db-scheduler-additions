@@ -34,6 +34,8 @@ class CouchbaseTaskRepository(
   companion object {
     private const val SCHEDULER_NAME_TAKE = 50
     private const val SELECT_FROM_WITH_META = "SELECT c.*, { \"cas\": META(c).cas } AS metadata FROM"
+    private const val MAX_RETRIES = 3
+    private const val DEFAULT_RETRY_DELAY_MS = 100L
   }
 
   private val logger = LoggerFactory.getLogger(CouchbaseTaskRepository::class.java)
@@ -42,25 +44,41 @@ class CouchbaseTaskRepository(
   private val cluster: Cluster by lazy { couchbase.cluster }
 
   override suspend fun createIfNotExists(
-    execution: SchedulableInstance<*>
-  ): Boolean = getOption(execution.documentId())
-    .map {
-      logger.info("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
+    execution: ScheduledTaskInstance
+  ): Boolean {
+    val entity: CouchbaseTaskEntity = toEntity(Execution(execution.executionTime, execution.taskInstance)).copy(picked = false)
+    return try {
+      collection.insert(execution.documentId(), Content.binary(serializer.serialize(entity)))
+      logger.debug("Successfully inserted task with id {}", execution.documentId())
+      true
+    } catch (_: DocumentExistsException) {
+      logger.debug("Task with id {} already exists in the repository (concurrent insert)", execution.documentId())
       false
-    }.recover {
-      val entity: CouchbaseTaskEntity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
-        .copy(picked = false)
-      try {
-        collection.insert(execution.documentId(), Content.binary(serializer.serialize(entity)))
-        true
-      } catch (e: DocumentExistsException) {
-        logger.info("Task with id {} already exists in the repository", execution.id)
-        false
-      } catch (e: CouchbaseException) {
-        logger.info("Failed to insert task with id {}, probably an internal error", execution.id, e)
-        false
+    } catch (e: CouchbaseException) {
+      logger.warn("Failed to insert task with id {}: {}", execution.documentId(), e.message)
+      if (logger.isDebugEnabled) {
+        logger.debug("Full error details for failed task insertion:", e)
       }
-    }.getOrElse { false }
+      false
+    }
+  }
+
+  override suspend fun createBatch(
+    instances: List<ScheduledTaskInstance>
+  ): Unit = coroutineScope {
+    // Process in parallel with concurrency control
+    instances
+      .map { instance ->
+        async {
+          try {
+            createIfNotExists(instance)
+          } catch (e: Exception) {
+            logger.error("Failed to create task instance {}", instance.id, e)
+            false
+          }
+        }
+      }.awaitAll()
+  }
 
   override suspend fun getDue(now: Instant, limit: Int): List<Execution> {
     val query = buildString {
@@ -75,18 +93,20 @@ class CouchbaseTaskRepository(
     }
     return queryAsFlow<CouchbaseTaskEntity>(
       query,
-      QueryParameters.named(mapOf("now" to now, "limit" to limit))
+      QueryParameters.named {
+        param("limit", limit)
+        param("now", now)
+      }
     ).map { toExecution(it) }.toList()
   }
 
-  @Suppress("ThrowsCount")
   override suspend fun replace(
     toBeReplaced: Execution,
-    newInstance: SchedulableInstance<*>
-  ): Instant {
-    val newExecutionTime = newInstance.getNextExecutionTime(clock.now())
+    newInstance: ScheduledTaskInstance
+  ): Instant = withRetry(MAX_RETRIES, DEFAULT_RETRY_DELAY_MS) {
+    val newExecutionTime = newInstance.executionTime
     val newExecution = Execution(newExecutionTime, newInstance.taskInstance)
-    return getLockOption(toBeReplaced.documentId())
+    getLockOption(toBeReplaced.documentId())
       .map { found ->
         Either
           .catch {
@@ -109,11 +129,7 @@ class CouchbaseTaskRepository(
 
               is CasMismatchException -> {
                 logger.warn("Failed to replace task with id ${toBeReplaced.documentId()}, cas mismatch")
-                throw TaskInstanceException(
-                  "Task with id ${toBeReplaced.documentId()} was updated by another process",
-                  toBeReplaced.taskInstance.taskName,
-                  toBeReplaced.taskInstance.id
-                )
+                throw RetryableException("Optimistic concurrency control conflict, retrying", it)
               }
 
               else -> {
@@ -166,7 +182,9 @@ class CouchbaseTaskRepository(
 
     queryAsFlow<CouchbaseTaskEntity>(
       query,
-      parameters = QueryParameters.named(mapOf("taskName" to taskName))
+      parameters = QueryParameters.named {
+        param("taskName", taskName)
+      }
     ).map { toExecution(it) }.collect { consumer.accept(it) }
   }
 
@@ -191,31 +209,34 @@ class CouchbaseTaskRepository(
 
     val candidates = queryAsFlow<CouchbaseTaskEntity>(
       query,
-      parameters = QueryParameters.named(
-        mapOf(
-          "now" to now,
-          "limit" to limit
-        )
-      )
+      parameters = QueryParameters.named {
+        param("now", now)
+        param("limit", limit)
+      }
     ).map { toExecution(it) }.toList()
 
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
 
-    val updated = candidates
-      .map { candidate ->
-        logger.info("Locking task with id {}", candidate.documentId())
-        getLockAndUpdate(candidate.documentId()) {
-          it.copy(
-            picked = true,
-            pickedBy = pickedBy,
-            lastHeartbeat = lastHeartbeat,
-            version = it.version + 1
-          )
-        }
-      }.filter { it.isSome() }
-      .mapNotNull { it.getOrNull() }
-      .toList()
+    // Perform locking with concurrency control
+    val updated = coroutineScope {
+      candidates
+        .map { candidate ->
+          async {
+            logger.info("Locking task with id {}", candidate.documentId())
+            getLockAndUpdateWithRetry(candidate.documentId(), MAX_RETRIES, DEFAULT_RETRY_DELAY_MS) {
+              it.copy(
+                picked = true,
+                pickedBy = pickedBy,
+                lastHeartbeat = lastHeartbeat,
+                version = it.version + 1
+              )
+            }
+          }
+        }.awaitAll()
+        .filter { it.isSome() }
+        .mapNotNull { it.getOrNull() }
+    }
 
     if (updated.size != candidates.size) {
       logger.error(
@@ -274,19 +295,21 @@ class CouchbaseTaskRepository(
     lastSuccess: Instant?,
     lastFailure: Instant?,
     consecutiveFailures: Int
-  ): Boolean = getLockAndUpdate(execution.documentId()) {
-    it
-      .copy(
-        picked = false,
-        pickedBy = null,
-        lastHeartbeat = null,
-        lastSuccess = lastSuccess,
-        lastFailure = lastFailure,
-        executionTime = nextExecutionTime,
-        consecutiveFailures = consecutiveFailures,
-        version = it.version + 1
-      ).let { data.map { d -> it.copy(taskData = serializer.serialize(d)) }.getOrElse { it } }
-  }.isSome()
+  ): Boolean = withRetry(MAX_RETRIES, DEFAULT_RETRY_DELAY_MS) {
+    getLockAndUpdate(execution.documentId()) {
+      it
+        .copy(
+          picked = false,
+          pickedBy = null,
+          lastHeartbeat = null,
+          lastSuccess = lastSuccess,
+          lastFailure = lastFailure,
+          executionTime = nextExecutionTime,
+          consecutiveFailures = consecutiveFailures,
+          version = it.version + 1
+        ).let { data.map { d -> it.copy(taskData = serializer.serialize(d)) }.getOrElse { it } }
+    }.isSome()
+  }
 
   override suspend fun pick(
     e: Execution,
@@ -313,9 +336,12 @@ class CouchbaseTaskRepository(
       append(" ORDER BY c.lastHeartbeat")
     }
 
-    return queryAsFlow<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("olderThan" to olderThan)))
-      .map { toExecution(it) }
-      .toList()
+    return queryAsFlow<CouchbaseTaskEntity>(
+      query,
+      QueryParameters.named {
+        param("olderThan", olderThan)
+      }
+    ).map { toExecution(it) }.toList()
   }
 
   override suspend fun updateHeartbeatWithRetry(
@@ -342,7 +368,7 @@ class CouchbaseTaskRepository(
   override suspend fun updateHeartbeat(
     execution: Execution,
     heartbeatTime: Instant
-  ): Boolean = getLockAndUpdate(execution.documentId()) {
+  ): Boolean = getLockAndUpdateWithRetry(execution.documentId(), MAX_RETRIES, DEFAULT_RETRY_DELAY_MS) {
     it.copy(lastHeartbeat = heartbeatTime)
   }.isSome()
 
@@ -354,9 +380,12 @@ class CouchbaseTaskRepository(
       append(" OR (c.${TaskEntity::lastFailure.name} IS NOT NULL AND c.${TaskEntity::lastSuccess.name} < \$boundary)")
     }
     val boundary = clock.now().minus(interval)
-    return queryAsFlow<CouchbaseTaskEntity>(query, QueryParameters.named(mapOf("boundary" to boundary)))
-      .map { toExecution(it) }
-      .toList()
+    return queryAsFlow<CouchbaseTaskEntity>(
+      query,
+      QueryParameters.named {
+        param("boundary", boundary)
+      }
+    ).map { toExecution(it) }.toList()
   }
 
   override suspend fun removeExecutions(taskName: String): Int {
@@ -370,7 +399,7 @@ class CouchbaseTaskRepository(
       .query(
         query,
         readonly = false,
-        parameters = QueryParameters.named(mapOf("taskName" to taskName))
+        parameters = QueryParameters.named { param("taskName", taskName) }
       ).execute()
       .rows
       .count()
@@ -448,6 +477,10 @@ class CouchbaseTaskRepository(
     .mapLeft {
       when (it) {
         is DocumentNotFoundException -> None
+        is DocumentLockedException -> {
+          logger.debug("Document $id is already locked by another operation")
+          throw RetryableException("Document is already locked by another operation", it)
+        }
         else -> throw it
       }
     }.map { result ->
@@ -473,9 +506,59 @@ class CouchbaseTaskRepository(
       when (it) {
         is DocumentNotFoundException -> None.also { logger.warn("Failed to update task with id $id, not found") }
         is CasMismatchException -> None.also { logger.warn("Failed to update task with id $id, cas mismatch") }
+        is RetryableException -> throw it
         else -> throw it
       }
     }.merge()
+
+  private suspend fun getLockAndUpdateWithRetry(
+    id: String,
+    maxRetries: Int = MAX_RETRIES,
+    delayMs: Long = DEFAULT_RETRY_DELAY_MS,
+    duration: kotlin.time.Duration = 10.seconds,
+    block: (CouchbaseTaskEntity) -> CouchbaseTaskEntity
+  ): Option<CouchbaseTaskEntity> = withRetry(maxRetries, delayMs) {
+    getLockAndUpdate(id, duration, block)
+  }
+
+  private suspend fun <T> withRetry(
+    maxRetries: Int,
+    delayMs: Long,
+    block: suspend () -> T
+  ): T {
+    var retries = 0
+    var lastException: Exception? = null
+
+    while (retries < maxRetries) {
+      try {
+        return block()
+      } catch (e: RetryableException) {
+        lastException = e
+        retries++
+        if (retries < maxRetries) {
+          logger.debug("Retrying operation after failure ($retries/$maxRetries): ${e.message}")
+          delay(delayMs * (1L shl (retries - 1))) // Exponential backoff
+        }
+      } catch (e: CasMismatchException) {
+        lastException = e
+        retries++
+        if (retries < maxRetries) {
+          logger.debug("CAS mismatch, retrying operation ($retries/$maxRetries)")
+          delay(delayMs * (1L shl (retries - 1))) // Exponential backoff
+        }
+      }
+    }
+
+    throw lastException ?: RuntimeException("Operation failed after $maxRetries retries")
+  }
+
+  /**
+   * Exception used to mark operations that can be retried
+   */
+  private class RetryableException(
+    message: String,
+    cause: Throwable? = null
+  ) : RuntimeException(message, cause)
 
   private fun toEntity(execution: Execution, metadata: Map<String, Any> = mapOf()): CouchbaseTaskEntity = CouchbaseTaskEntity(
     taskName = execution.taskName,
@@ -493,10 +576,8 @@ class CouchbaseTaskRepository(
 
   private fun toExecution(entity: CouchbaseTaskEntity): Execution {
     val task = taskResolver.resolve(entity.taskName)
-    val dataSupplier = memoize {
-      task.map { serializer.deserialize(it.dataClass, entity.taskData) }.orElse(null)
-    }
-
+    // memoization?
+    val dataSupplier = task.map { serializer.deserialize(it.dataClass, entity.taskData) }.orElse(null)
     val taskInstance = TaskInstance(entity.taskName, entity.taskInstance, dataSupplier)
     return Execution(
       entity.executionTime,

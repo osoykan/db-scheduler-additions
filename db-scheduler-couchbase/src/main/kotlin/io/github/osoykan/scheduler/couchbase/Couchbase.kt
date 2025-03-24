@@ -68,7 +68,8 @@ class CouchbaseSchedulerDsl : SchedulerDsl<Couchbase>() {
     )
     val taskRepository = KTaskRepository(
       CouchbaseTaskRepository(clock, database!!, taskResolver, SchedulerName.Fixed(name), serializer),
-      scope
+      scope,
+      clock
     ).also { it.createIndexes() }
 
     return CouchbaseScheduler(

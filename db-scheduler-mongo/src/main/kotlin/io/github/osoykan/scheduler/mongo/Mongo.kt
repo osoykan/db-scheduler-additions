@@ -53,7 +53,8 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
     )
     val taskRepository = KTaskRepository(
       MongoTaskRepository(clock, database!!, taskResolver, SchedulerName.Fixed(name), serializer),
-      scope
+      scope,
+      clock
     ).also { it.createIndexes() }
 
     return MongoScheduler(

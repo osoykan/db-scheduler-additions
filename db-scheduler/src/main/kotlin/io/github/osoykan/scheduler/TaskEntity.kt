@@ -77,3 +77,5 @@ open class TaskEntity(
 fun Execution.documentId(): String = TaskEntity.documentId(taskName, taskInstance.id)
 
 fun SchedulableInstance<*>.documentId(): String = TaskEntity.documentId(taskName, id)
+
+fun ScheduledTaskInstance.documentId(): String = TaskEntity.documentId(taskName, id)

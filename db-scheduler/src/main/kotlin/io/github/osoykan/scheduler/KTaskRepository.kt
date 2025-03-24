@@ -2,6 +2,7 @@ package io.github.osoykan.scheduler
 
 import arrow.core.*
 import com.github.kagkarlsson.scheduler.*
+import com.github.kagkarlsson.scheduler.Clock
 import com.github.kagkarlsson.scheduler.task.*
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
@@ -11,7 +12,8 @@ import java.util.function.Consumer
 
 class KTaskRepository(
   private val taskRepository: CoroutineTaskRepository,
-  private val scope: CoroutineScope
+  private val scope: CoroutineScope,
+  private val clock: Clock
 ) : TaskRepository {
   private val logger = LoggerFactory.getLogger(KTaskRepository::class.java)
 
@@ -23,7 +25,12 @@ class KTaskRepository(
       .mapLeft { logger.error("Failed to create indexes for db-scheduler", it) }
   }
 
+  @Deprecated("Deprecated in Java")
   override fun createIfNotExists(execution: SchedulableInstance<*>): Boolean = runBlocking(scope.coroutineContext) {
+    createIfNotExists(ScheduledTaskInstance(execution.taskInstance, execution.getNextExecutionTime(clock.now())))
+  }
+
+  override fun createIfNotExists(execution: ScheduledTaskInstance): Boolean = runBlocking(scope.coroutineContext) {
     logger.debug("Creating if not exists for {}", execution)
     Either
       .catch { taskRepository.createIfNotExists(execution) }
@@ -45,7 +52,18 @@ class KTaskRepository(
       }.merge()
   }
 
-  override fun replace(toBeReplaced: Execution, newInstance: SchedulableInstance<*>): Instant = runBlocking(scope.coroutineContext) {
+  override fun createBatch(executions: MutableList<ScheduledTaskInstance>) = runBlocking(scope.coroutineContext) {
+    logger.debug("Creating batch for {}", executions)
+    Either
+      .catch { taskRepository.createBatch(executions) }
+      .onRight { logger.debug("Created batch for {}", executions) }
+      .mapLeft {
+        logger.error("Failed to createBatch for $executions", it)
+        throw it
+      }.merge()
+  }
+
+  override fun replace(toBeReplaced: Execution, newInstance: ScheduledTaskInstance): Instant = runBlocking(scope.coroutineContext) {
     logger.debug("Replacing for {}, {}", toBeReplaced, newInstance)
     Either
       .catch {
@@ -55,6 +73,11 @@ class KTaskRepository(
         logger.error("Failed to replace for $toBeReplaced, $newInstance", it)
         throw it
       }.merge()
+  }
+
+  @Deprecated("Deprecated in Java")
+  override fun replace(toBeReplaced: Execution, newInstance: SchedulableInstance<*>): Instant = runBlocking(scope.coroutineContext) {
+    replace(toBeReplaced, ScheduledTaskInstance(newInstance.taskInstance, newInstance.getNextExecutionTime(clock.now())))
   }
 
   override fun getScheduledExecutions(

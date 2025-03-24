@@ -10,7 +10,7 @@ import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import io.github.osoykan.scheduler.DocumentDatabase
 import io.kotest.assertions.nondeterministic.*
 import io.kotest.core.spec.style.AnnotationSpec
-import io.kotest.matchers.ints.shouldNotBeGreaterThan
+import io.kotest.matchers.ints.*
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.*
 import java.time.*
@@ -506,6 +506,207 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
         tasks.add(it)
       }
       tasks.size shouldBe amountOfUnresolvedTasks
+    }
+
+    scheduler.stop()
+  }
+
+  @Test
+  suspend fun `should read data inside the task`() {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db
+      .withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val executedData = mutableListOf<String>()
+    val task = Tasks
+      .oneTime<TestTaskData>("Reschedule Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { instance, context ->
+        val data = instance.data
+        executedData.add(data.name)
+      }
+
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+      .also { it.start() }
+
+    val taskId = "reschedule-task-${UUID.randomUUID()}"
+    scheduler.schedule(task.instance(taskId, TestTaskData("initial")), systemClock.now())
+
+    eventually(5.seconds) {
+      executedData.contains("initial") shouldBe true
+    }
+
+    scheduler.stop()
+  }
+
+  @Test
+  suspend fun `should handle task dependencies`() {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db
+      .withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val executionOrder = mutableListOf<String>()
+    val childTask = Tasks
+      .oneTime("Child Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> executionOrder.add("child") }
+
+    val parentTask = Tasks
+      .oneTime("Parent Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, context ->
+        executionOrder.add("parent")
+
+        context.schedulerClient.scheduleIfNotExists(
+          childTask.instance("child-task-${UUID.randomUUID()}", TestTaskData("child")),
+          Instant.now().plusSeconds(5)
+        )
+      }
+
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(parentTask, childTask), listOf(), name, systemClock)
+      .also { it.start() }
+
+    scheduler.schedule(
+      parentTask.instance("parent-task-${UUID.randomUUID()}", TestTaskData("parent")),
+      Instant.now()
+    )
+
+    eventually(1.minutes) {
+      executionOrder.size shouldBe 2
+      executionOrder[0] shouldBe "parent"
+      executionOrder[1] shouldBe "child"
+    }
+
+    scheduler.stop()
+  }
+
+  @Test
+  suspend fun `should handle multiple recurring tasks with different schedules`() {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db
+      .withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val fastExecutionCount = AtomicInt(0)
+    val slowExecutionCount = AtomicInt(0)
+
+    val fastTask = Tasks
+      .recurring(
+        "Fast Recurring Task-${UUID.randomUUID()}",
+        Schedules.fixedDelay(1.seconds.toJavaDuration()),
+        TestTaskData::class.java
+      ).initialData(TestTaskData("fast"))
+      .execute { _, _ -> fastExecutionCount.incrementAndGet() }
+
+    val slowTask = Tasks
+      .recurring(
+        "Slow Recurring Task-${UUID.randomUUID()}",
+        Schedules.fixedDelay(3.seconds.toJavaDuration()),
+        TestTaskData::class.java
+      ).initialData(TestTaskData("slow"))
+      .execute { _, _ -> slowExecutionCount.incrementAndGet() }
+
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(), listOf(fastTask, slowTask), name, systemClock)
+      .also { it.start() }
+
+    eventually(4.seconds) {
+      fastExecutionCount.get() shouldNotBeGreaterThan 4
+      slowExecutionCount.get() shouldBeGreaterThan 0
+    }
+
+    scheduler.stop()
+  }
+
+  @Test
+  suspend fun `should properly handle task removal`() {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db
+      .withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val executionCount = AtomicInt(0)
+    val task = Tasks
+      .oneTime("Removable Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> executionCount.incrementAndGet() }
+
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+      .also { it.start() }
+
+    // Schedule multiple instances of the same task
+    val taskIds = (1..5).map {
+      val id = "removable-task-$it-${UUID.randomUUID()}"
+      scheduler.schedule(task.instance(id, TestTaskData("test-$it")), Instant.now().plusSeconds(5))
+      id
+    }
+
+    // Remove one task
+    val taskToRemove = task.instance(taskIds[2], TestTaskData("test-3"))
+    scheduler.cancel(taskToRemove)
+
+    // Advance time to trigger execution
+    val testClock = SettableClock(Instant.now().plusSeconds(10))
+
+    eventually(1.minutes) {
+      executionCount.get() shouldBe 4 // 5 tasks scheduled, 1 removed
+    }
+
+    scheduler.stop()
+  }
+
+  @Test
+  suspend fun `should handle high concurrency with task batch creation`() = coroutineScope {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db
+      .withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val batchSize = 50
+    val batches = 5
+    val totalTasks = batchSize * batches
+    val executionCount = AtomicInt(0)
+
+    val task = Tasks
+      .oneTime("BatchTask-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> executionCount.incrementAndGet() }
+
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock)
+      .also { it.start() }
+
+    // Create multiple batches of tasks
+    val batchJobs = (1..batches).map { batchNum ->
+      async {
+        val batch = (1..batchSize).map { i ->
+          task.instance(
+            "batch-$batchNum-task-$i-${UUID.randomUUID()}",
+            TestTaskData("test-$batchNum-$i")
+          )
+        }
+
+        // Schedule all tasks in the batch
+        batch.forEach {
+          scheduler.schedule(it, Instant.now().plusMillis(200))
+        }
+      }
+    }
+
+    batchJobs.awaitAll()
+
+    eventually(2.minutes) {
+      executionCount.get() shouldBe totalTasks
     }
 
     scheduler.stop()

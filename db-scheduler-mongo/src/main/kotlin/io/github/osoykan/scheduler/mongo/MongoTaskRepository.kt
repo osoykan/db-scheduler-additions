@@ -27,17 +27,45 @@ class MongoTaskRepository(
   private val logger = LoggerFactory.getLogger(MongoTaskRepository::class.java)
   private val collection: MongoCollection<MongoTaskEntity> by lazy { mongo.schedulerCollection }
 
-  override suspend fun createIfNotExists(
-    execution: SchedulableInstance<*>
-  ): Boolean = getOption(execution.documentId())
-    .map {
-      logger.debug("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
-      false
-    }.recover {
-      val entity: MongoTaskEntity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
-        .copy(picked = false)
-      collection.insertOne(entity).wasAcknowledged()
-    }.getOrElse { false }
+//  override suspend fun createIfNotExists(
+//    execution: SchedulableInstance<*>
+//  ): Boolean = getOption(execution.documentId())
+//    .map {
+//      logger.debug("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
+//      false
+//    }.recover {
+//      val entity: MongoTaskEntity = toEntity(Execution(execution.getNextExecutionTime(clock.now()), execution.taskInstance))
+//        .copy(picked = false)
+//      collection.insertOne(entity).wasAcknowledged()
+//    }.getOrElse { false }
+
+  override suspend fun createIfNotExists(execution: ScheduledTaskInstance): Boolean =
+    getOption(execution.documentId())
+      .map {
+        logger.debug("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
+        false
+      }.recover {
+        val entity: MongoTaskEntity = toEntity(Execution(execution.executionTime, execution.taskInstance)).copy(picked = false)
+        collection.insertOne(entity).wasAcknowledged()
+      }.getOrElse { false }
+
+  override suspend fun createBatch(instances: List<ScheduledTaskInstance>) {
+    if (instances.isEmpty()) return
+
+    val entitiesToInsert = instances.mapNotNull { instance ->
+      if (getOption(instance.documentId()).isSome()) {
+        logger.debug("Task with id {} already exists in the repository. Skipping.", instance.documentId())
+        null
+      } else {
+        toEntity(Execution(instance.executionTime, instance.taskInstance)).copy(picked = false)
+      }
+    }
+
+    if (entitiesToInsert.isNotEmpty()) {
+      collection.insertMany(entitiesToInsert)
+      logger.debug("Inserted {} tasks in batch", entitiesToInsert.size)
+    }
+  }
 
   override suspend fun getDue(now: Instant, limit: Int): List<Execution> = collection
     .find(
@@ -51,9 +79,9 @@ class MongoTaskRepository(
 
   override suspend fun replace(
     toBeReplaced: Execution,
-    newInstance: SchedulableInstance<*>
+    newInstance: ScheduledTaskInstance
   ): Instant {
-    val newExecutionTime = newInstance.getNextExecutionTime(clock.now())
+    val newExecutionTime = newInstance.executionTime
     val newExecution = Execution(newExecutionTime, newInstance.taskInstance)
     val replaced = collection.findOneAndUpdate(
       Filters.and(
@@ -388,10 +416,8 @@ class MongoTaskRepository(
 
   private fun toExecution(entity: MongoTaskEntity): Execution {
     val task = taskResolver.resolve(entity.taskName)
-    val dataSupplier = memoize {
-      task.map { serializer.deserialize(it.dataClass, entity.taskData) }.orElse(null)
-    }
-
+    // memoization?
+    val dataSupplier = task.map { serializer.deserialize(it.dataClass, entity.taskData) }.orElse(null)
     val taskInstance = TaskInstance(entity.taskName, entity.taskInstance, dataSupplier)
     return Execution(
       entity.executionTime,

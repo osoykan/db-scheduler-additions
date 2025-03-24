@@ -9,11 +9,13 @@ import java.util.function.*
 interface CoroutineTaskRepository {
   suspend fun createIndexes()
 
-  suspend fun createIfNotExists(execution: SchedulableInstance<*>): Boolean
+  suspend fun createIfNotExists(execution: ScheduledTaskInstance): Boolean
+
+  suspend fun createBatch(instances: List<ScheduledTaskInstance>)
 
   suspend fun getDue(now: Instant, limit: Int): List<Execution>
 
-  suspend fun replace(toBeReplaced: Execution, newInstance: SchedulableInstance<*>): Instant
+  suspend fun replace(toBeReplaced: Execution, newInstance: ScheduledTaskInstance): Instant
 
   suspend fun getScheduledExecutions(filter: ScheduledExecutionsFilter, consumer: Consumer<Execution>)
 
@@ -60,24 +62,8 @@ interface CoroutineTaskRepository {
 
   suspend fun verifySupportsLockAndFetch()
 
-  fun <T> memoize(original: Supplier<T>): Supplier<T> {
-    return object : Supplier<T> {
-      private var delegate: Supplier<T> = Supplier { firstTime() }
-
-      @Volatile
-      private var initialized = false
-
-      override fun get(): T = delegate.get()
-
-      @Synchronized
-      private fun firstTime(): T {
-        if (!initialized) {
-          val value = original.get()
-          delegate = Supplier { value }
-          initialized = true
-        }
-        return delegate.get()
-      }
-    }
+  fun <T : Any> memoize(original: Supplier<T>): Supplier<T> {
+    val cached = lazy(LazyThreadSafetyMode.SYNCHRONIZED) { original.get() }
+    return Supplier { cached.value }
   }
 }
