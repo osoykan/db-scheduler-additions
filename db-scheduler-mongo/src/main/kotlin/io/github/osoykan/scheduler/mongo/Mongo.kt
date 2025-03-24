@@ -1,6 +1,7 @@
 package io.github.osoykan.scheduler.mongo
 
 import com.github.kagkarlsson.scheduler.*
+import com.github.kagkarlsson.scheduler.Waiter
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
 import com.mongodb.kotlin.client.coroutine.*
@@ -8,7 +9,7 @@ import io.github.osoykan.scheduler.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.toList
 import org.slf4j.LoggerFactory
-import java.util.concurrent.Executors
+import java.util.concurrent.*
 import kotlin.time.toJavaDuration
 
 data class Mongo(
@@ -30,18 +31,27 @@ data class Mongo(
 
 @SchedulerDslMarker
 class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
+  private var executorService: ExecutorService? = null
+  private var houseKeeperExecutorService: ScheduledExecutorService? = null
+  private var schedulerScope: CoroutineScope? = null
+
   internal fun build(): Scheduler {
     requireNotNull(database) { "Database must be provided" }
 
     val statsRegistry = MicrometerStatsRegistry(meterRegistry, knownTasks + startupTasks)
     val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
-    val executorService = Executors.newFixedThreadPool(fixedThreadPoolSize, NamedThreadFactory("db-scheduler-$name"))
-    val houseKeeperExecutorService = Executors.newScheduledThreadPool(
-      corePoolSize,
-      NamedThreadFactory("db-scheduler-housekeeper-$name")
+    executorService = Executors.newFixedThreadPool(
+      fixedThreadPoolSize,
+      NamedThreadFactory("db-scheduler-executor-$name")
     )
-    val dispatcher = executorService.asCoroutineDispatcher()
-    val scope = CoroutineScope(
+
+    houseKeeperExecutorService = Executors.newScheduledThreadPool(
+      corePoolSize,
+      NamedThreadFactory("db-scheduler-house-keeper-executor-$name")
+    )
+
+    val dispatcher = executorService!!.asCoroutineDispatcher()
+    schedulerScope = CoroutineScope(
       dispatcher +
         SupervisorJob() +
         CoroutineName("db-scheduler-$name") +
@@ -53,7 +63,7 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
     )
     val taskRepository = KTaskRepository(
       MongoTaskRepository(clock, database!!, taskResolver, SchedulerName.Fixed(name), serializer),
-      scope,
+      schedulerScope!!,
       clock
     ).also { it.createIndexes() }
 
@@ -64,8 +74,8 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
       taskResolver = taskResolver,
       schedulerName = SchedulerName.Fixed(name),
       threadPoolSize = corePoolSize,
-      executorService = executorService,
-      houseKeeperExecutorService = houseKeeperExecutorService,
+      executorService = executorService!!,
+      houseKeeperExecutorService = houseKeeperExecutorService!!,
       deleteUnresolvedAfter = deleteUnresolvedAfter,
       executeDueWaiter = Waiter(executeDue.toJavaDuration()),
       heartbeatInterval = heartbeatInterval,
@@ -77,8 +87,22 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
       numberOfMissedHeartbeatsBeforeDead = numberOfMissedHeartbeatsBeforeDead,
       schedulerListeners = listeners + listOf(StatsRegistryAdapter(statsRegistry))
     ) {
-      scope.cancel()
-      dispatcher.cancel()
+      schedulerScope?.cancel("Scheduler shutdown")
+      executorService?.shutdown()
+      houseKeeperExecutorService?.shutdown()
+
+      try {
+        if (executorService?.awaitTermination(30, TimeUnit.SECONDS) == false) {
+          executorService?.shutdownNow()
+        }
+        if (houseKeeperExecutorService?.awaitTermination(10, TimeUnit.SECONDS) == false) {
+          houseKeeperExecutorService?.shutdownNow()
+        }
+      } catch (_: InterruptedException) {
+        executorService?.shutdownNow()
+        houseKeeperExecutorService?.shutdownNow()
+        Thread.currentThread().interrupt()
+      }
     }
   }
 }

@@ -5,12 +5,13 @@ import com.couchbase.client.core.io.CollectionIdentifier
 import com.couchbase.client.kotlin.*
 import com.couchbase.client.kotlin.Collection
 import com.github.kagkarlsson.scheduler.*
+import com.github.kagkarlsson.scheduler.Waiter
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
 import io.github.osoykan.scheduler.*
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
-import java.util.concurrent.Executors
+import java.util.concurrent.*
 import kotlin.time.toJavaDuration
 
 data class Couchbase(
@@ -45,30 +46,40 @@ data class Couchbase(
 
 @SchedulerDslMarker
 class CouchbaseSchedulerDsl : SchedulerDsl<Couchbase>() {
+  private var executorService: ExecutorService? = null
+  private var houseKeeperExecutorService: ScheduledExecutorService? = null
+  private var schedulerScope: CoroutineScope? = null
+
   internal fun build(): Scheduler {
     requireNotNull(database) { "Database must be provided" }
 
     val statsRegistry = MicrometerStatsRegistry(meterRegistry, knownTasks + startupTasks)
     val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
-    val executorService = Executors.newFixedThreadPool(fixedThreadPoolSize, NamedThreadFactory("db-scheduler-$name"))
-    val houseKeeperExecutorService = Executors.newScheduledThreadPool(
-      corePoolSize,
-      NamedThreadFactory("db-scheduler-housekeeper-$name")
+
+    executorService = Executors.newFixedThreadPool(
+      fixedThreadPoolSize,
+      NamedThreadFactory("db-scheduler-$name")
     )
-    val dispatcher = executorService.asCoroutineDispatcher()
-    val scope = CoroutineScope(
+
+    houseKeeperExecutorService = Executors.newScheduledThreadPool(
+      corePoolSize,
+      NamedThreadFactory("house-keeper-executor-$name")
+    )
+
+    val dispatcher = executorService!!.asCoroutineDispatcher()
+    schedulerScope = CoroutineScope(
       dispatcher +
         SupervisorJob() +
         CoroutineName("db-scheduler-$name") +
         CoroutineExceptionHandler { coroutineContext, throwable ->
-          LoggerFactory
-            .getLogger(SchedulerDsl::class.java)
-            .error("Coroutine failed, context: {}", coroutineContext, throwable)
+          val logger = LoggerFactory.getLogger(SchedulerDsl::class.java)
+          logger.error("Coroutine failed, context: {}", coroutineContext, throwable)
         }
     )
+
     val taskRepository = KTaskRepository(
       CouchbaseTaskRepository(clock, database!!, taskResolver, SchedulerName.Fixed(name), serializer),
-      scope,
+      schedulerScope!!,
       clock
     ).also { it.createIndexes() }
 
@@ -79,8 +90,8 @@ class CouchbaseSchedulerDsl : SchedulerDsl<Couchbase>() {
       taskResolver = taskResolver,
       schedulerName = SchedulerName.Fixed(name),
       threadPoolSize = corePoolSize,
-      executorService = executorService,
-      houseKeeperExecutorService = houseKeeperExecutorService,
+      executorService = executorService!!,
+      houseKeeperExecutorService = houseKeeperExecutorService!!,
       deleteUnresolvedAfter = deleteUnresolvedAfter,
       executeDueWaiter = Waiter(executeDue.toJavaDuration()),
       heartbeatInterval = heartbeatInterval,
@@ -92,8 +103,22 @@ class CouchbaseSchedulerDsl : SchedulerDsl<Couchbase>() {
       numberOfMissedHeartbeatsBeforeDead = numberOfMissedHeartbeatsBeforeDead,
       schedulerListeners = listeners + listOf(StatsRegistryAdapter(statsRegistry))
     ) {
-      scope.cancel()
-      dispatcher.cancel()
+      schedulerScope?.cancel("Scheduler shutdown")
+      executorService?.shutdown()
+      houseKeeperExecutorService?.shutdown()
+
+      try {
+        if (executorService?.awaitTermination(30, TimeUnit.SECONDS) == false) {
+          executorService?.shutdownNow()
+        }
+        if (houseKeeperExecutorService?.awaitTermination(10, TimeUnit.SECONDS) == false) {
+          houseKeeperExecutorService?.shutdownNow()
+        }
+      } catch (_: InterruptedException) {
+        executorService?.shutdownNow()
+        houseKeeperExecutorService?.shutdownNow()
+        Thread.currentThread().interrupt()
+      }
     }
   }
 }

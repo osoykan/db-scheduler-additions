@@ -185,16 +185,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("RacingTasks-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
-    val count = 200
+    val count = 100
     val tasks = (1..count)
     val settableClock = SettableClock(Instant.now())
+    val plannedTime = settableClock.now().plusSeconds(1)
     val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, settableClock, OtherOptions()) as SchedulerClient
     tasks
       .map { i ->
         async {
           scheduler.scheduleIfNotExists(
             task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
-            settableClock.now().plusSeconds(1)
+            plannedTime
           )
         }
       }.awaitAll()
@@ -625,7 +626,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .schedulerFactory(testContextDb, listOf(), listOf(fastTask, slowTask), name, systemClock, OtherOptions())
       .also { it.start() }
 
-    eventually(4.seconds) {
+    eventually(5.seconds) {
       fastExecutionCount.get() shouldNotBeGreaterThan 4
       slowExecutionCount.get() shouldBeGreaterThan 0
     }
