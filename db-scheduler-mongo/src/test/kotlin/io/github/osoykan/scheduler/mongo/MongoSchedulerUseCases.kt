@@ -41,7 +41,7 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
     mongoContainer.stop()
   }
 
-  override suspend fun caseDefinition(): CaseDefinition<Mongo> = CaseDefinition(mongo) { db, tasks, startupTasks, name, clock ->
+  override suspend fun caseDefinition(): CaseDefinition<Mongo> = CaseDefinition(mongo) { db, tasks, startupTasks, name, clock, options ->
     scheduler {
       database(db)
       knownTasks(*tasks.toTypedArray())
@@ -50,6 +50,7 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
       clock(clock)
       shutdownMaxWait(1.seconds)
       deleteUnresolvedAfter(10.minutes)
+      fixedThreadPoolSize(options.concurrency)
     }
   }
 }

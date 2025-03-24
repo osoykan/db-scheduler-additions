@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package io.github.osoykan.scheduler
 
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule

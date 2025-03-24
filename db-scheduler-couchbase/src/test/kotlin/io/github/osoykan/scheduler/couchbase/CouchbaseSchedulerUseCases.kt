@@ -51,7 +51,7 @@ class CouchbaseSchedulerUseCases : SchedulerUseCases<Couchbase>() {
     container.stop()
   }
 
-  override suspend fun caseDefinition(): CaseDefinition<Couchbase> = CaseDefinition(couchbase) { db, tasks, startupTasks, name, clock ->
+  override suspend fun caseDefinition(): CaseDefinition<Couchbase> = CaseDefinition(couchbase) { db, tasks, startupTasks, name, clock, options ->
     scheduler {
       database(db)
       knownTasks(*tasks.toTypedArray())
@@ -60,6 +60,7 @@ class CouchbaseSchedulerUseCases : SchedulerUseCases<Couchbase>() {
       clock(clock)
       shutdownMaxWait(1.seconds)
       deleteUnresolvedAfter(10.minutes)
+      fixedThreadPoolSize(options.concurrency)
     }
   }
 }
