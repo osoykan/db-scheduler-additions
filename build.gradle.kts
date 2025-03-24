@@ -1,7 +1,7 @@
 import com.vanniktech.maven.publish.SonatypeHost
 
 group = "io.github.osoykan"
-version = "0.0.6"
+version = "0.0.7"
 
 plugins {
   kotlin("jvm") version libs.versions.kotlin
