@@ -10,7 +10,7 @@ dbscheduler = "15.3.0"
 slf4j = "2.0.17"
 ktor = "3.1.1"
 koin = "4.0.2"
-mongodb = "5.3.1"
+mongodb = "5.4.0"
 
 ## test
 kotest = "5.9.1"
@@ -32,7 +32,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.17" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.18" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
