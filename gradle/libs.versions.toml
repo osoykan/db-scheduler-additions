@@ -1,15 +1,15 @@
 [versions]
 kotlin = "2.0.20"
-kotlinx = "1.10.1"
-couchbase-client-kotlin = "1.4.9"
+kotlinx = "1.10.2"
+couchbase-client-kotlin = "1.5.0"
 jackson = "2.18.3"
-arrow = "2.0.1"
-micrometer-prometheus = "1.14.5"
+arrow = "2.1.0"
+micrometer-prometheus = "1.14.6"
 detekt = "1.23.8"
-dbscheduler = "15.3.0"
+dbscheduler = "15.4.2"
 slf4j = "2.0.17"
-ktor = "3.1.1"
-koin = "4.0.2"
+ktor = "3.1.2"
+koin = "4.0.4"
 mongodb = "5.4.0"
 
 ## test
@@ -68,9 +68,9 @@ mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-corouti
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
-datafaker = { module = "net.datafaker:datafaker", version = "2.4.2" }
-kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.5" }
-hikari = { module = "com.zaxxer:HikariCP", version = "6.2.1" }
+datafaker = { module = "net.datafaker:datafaker", version = "2.4.3" }
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.7" }
+hikari = { module = "com.zaxxer:HikariCP", version = "6.3.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.5" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.6" }
 testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.20.6" }
@@ -78,7 +78,7 @@ testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.20.
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "7.0.2" }
+spotless = { id = "com.diffplug.spotless", version = "7.0.3" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.31.0" }
