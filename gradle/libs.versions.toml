@@ -2,11 +2,11 @@
 kotlin = "2.0.20"
 kotlinx = "1.10.2"
 couchbase-client-kotlin = "1.5.0"
-jackson = "2.18.3"
+jackson = "2.19.0"
 arrow = "2.1.0"
 micrometer-prometheus = "1.14.6"
 detekt = "1.23.8"
-dbscheduler = "15.4.2"
+dbscheduler = "15.5.0"
 slf4j = "2.0.17"
 ktor = "3.1.2"
 koin = "4.0.4"
@@ -72,9 +72,9 @@ datafaker = { module = "net.datafaker:datafaker", version = "2.4.3" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.7" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.3.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.5" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.20.6" }
-testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.20.6" }
-testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.20.6" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.0" }
+testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.0" }
+testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.0" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
