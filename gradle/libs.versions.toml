@@ -3,8 +3,8 @@ kotlin = "2.0.20"
 kotlinx = "1.10.2"
 couchbase-client-kotlin = "1.5.1"
 jackson = "2.19.0"
-arrow = "2.1.1"
-micrometer-prometheus = "1.14.6"
+arrow = "2.1.2"
+micrometer-prometheus = "1.15.0"
 detekt = "1.23.8"
 dbscheduler = "15.6.0"
 slf4j = "2.0.17"
@@ -81,4 +81,4 @@ testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "7.0.3" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.31.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.32.0" }
