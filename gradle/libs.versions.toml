@@ -3,8 +3,8 @@ kotlin = "2.0.20"
 kotlinx = "1.10.2"
 couchbase-client-kotlin = "1.5.1"
 jackson = "2.19.0"
-arrow = "2.1.1"
-micrometer-prometheus = "1.14.6"
+arrow = "2.1.2"
+micrometer-prometheus = "1.15.0"
 detekt = "1.23.8"
 dbscheduler = "15.6.0"
 slf4j = "2.0.17"
@@ -59,7 +59,7 @@ ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", v
 # Others
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
-dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "4.1.0" }
+dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "4.2.0" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
 mongodb-bson-kotlin = { module = "org.mongodb:bson-kotlin", version.ref = "mongodb" }
 mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
@@ -78,7 +78,7 @@ testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "7.0.3" }
+spotless = { id = "com.diffplug.spotless", version = "7.0.4" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.31.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.32.0" }
