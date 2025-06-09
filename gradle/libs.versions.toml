@@ -1,16 +1,16 @@
 [versions]
 kotlin = "2.0.20"
 kotlinx = "1.10.2"
-couchbase-client-kotlin = "1.5.1"
+couchbase-client-kotlin = "1.5.2"
 jackson = "2.19.0"
 arrow = "2.1.2"
-micrometer-prometheus = "1.15.0"
+micrometer-prometheus = "1.15.1"
 detekt = "1.23.8"
 dbscheduler = "15.6.0"
 slf4j = "2.0.17"
 ktor = "3.1.3"
-koin = "4.0.4"
-mongodb = "5.5.0"
+koin = "4.1.0"
+mongodb = "5.5.1"
 
 ## test
 kotest = "5.9.1"
@@ -59,7 +59,7 @@ ktor-server-defaultHeaders = { module = "io.ktor:ktor-server-default-headers", v
 # Others
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 dbScheduler = { module = "com.github.kagkarlsson:db-scheduler", version.ref = "dbscheduler" }
-dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "4.2.0" }
+dbScheduler-ui = { module = "no.bekk.db-scheduler-ui:db-scheduler-ui", version = "4.3.0" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer-prometheus" }
 mongodb-bson-kotlin = { module = "org.mongodb:bson-kotlin", version.ref = "mongodb" }
 mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
@@ -71,10 +71,10 @@ kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", vers
 datafaker = { module = "net.datafaker:datafaker", version = "2.4.3" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.7" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.3.0" }
-postgresql = { module = "org.postgresql:postgresql", version = "42.7.5" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.0" }
-testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.0" }
-testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.0" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.6" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.1" }
+testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.1" }
+testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.1" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
