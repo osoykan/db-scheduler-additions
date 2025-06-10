@@ -219,11 +219,12 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .also { it.start() }
 
     val executionTime = testClock.now()
-    (1..amountOfTasks).map { i ->
-      async {
-        scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), executionTime)
-      }
-    }.awaitAll()
+    (1..amountOfTasks)
+      .map { i ->
+        async {
+          scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), executionTime)
+        }
+      }.awaitAll()
 
     // Wait for all tasks to execute
     waitForCondition(testClock) { executionCount.get() == amountOfTasks }
@@ -290,14 +291,15 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val plannedTime = testClock.peekAhead(1.seconds)
 
     val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, testClock, OtherOptions()) as SchedulerClient
-    (1..count).map { i ->
-      async {
-        scheduler.scheduleIfNotExists(
-          task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
-          plannedTime
-        )
-      }
-    }.awaitAll()
+    (1..count)
+      .map { i ->
+        async {
+          scheduler.scheduleIfNotExists(
+            task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
+            plannedTime
+          )
+        }
+      }.awaitAll()
 
     val options = OtherOptions(concurrency = 150)
     val scheduler1 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 1", testClock, options)
@@ -334,7 +336,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val maxRetry = 3
     val totalExecutions = maxRetry + 1
     val testClock = createTestClock()
-    
+
     val task = Tasks
       .oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .onFailure(
@@ -354,7 +356,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Wait for all retries to complete
     waitForCondition(testClock, maxDuration = 10.seconds) {
-      executionCount.get() == totalExecutions 
+      executionCount.get() == totalExecutions
     }
 
     scheduler.stop()
@@ -373,7 +375,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val maxRetry = 3
     val totalExecutions = maxRetry + 1
     val testClock = createTestClock()
-    
+
     val task = Tasks
       .recurring(
         "Failing Recurring Task-${UUID.randomUUID()}",
@@ -395,7 +397,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Wait for all retries to complete
     waitForCondition(testClock, maxDuration = 10.seconds) {
-      executionCount.get() == totalExecutions 
+      executionCount.get() == totalExecutions
     }
 
     scheduler.stop()
@@ -651,7 +653,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     val executionOrder = mutableListOf<String>()
     val testClock = createTestClock()
-    
+
     val childTask = Tasks
       .oneTime("Child Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionOrder.add("child") }
@@ -683,7 +685,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     testClock.advanceBy(6.seconds)
 
     waitForCondition(testClock) {
-      executionOrder.size == 2 && executionOrder[0] == "parent" && executionOrder[1] == "child" 
+      executionOrder.size == 2 && executionOrder[0] == "parent" && executionOrder[1] == "child"
     }
 
     scheduler.stop()
@@ -802,7 +804,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .also { it.start() }
 
     val executionTime = testClock.peekAhead(200.milliseconds)
-    
+
     // Create multiple batches of tasks
     val batchJobs = (1..batches).map { batchNum ->
       async {
