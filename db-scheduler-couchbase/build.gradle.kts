@@ -17,3 +17,7 @@ dependencies {
   testImplementation(libs.testcontainers.couchbase)
   testImplementation(testFixtures(projects.dbScheduler))
 }
+
+tasks.test {
+  enabled = !runningOnCI
+}

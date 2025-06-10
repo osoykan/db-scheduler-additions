@@ -296,7 +296,7 @@ class CouchbaseTaskRepository(
     lastFailure: Instant?,
     consecutiveFailures: Int
   ): Boolean = withRetry(MAX_RETRIES, DEFAULT_RETRY_DELAY_MS) {
-    getLockAndUpdate(execution.documentId()) {
+    getLockAndUpdate(execution.documentId()) { it ->
       it
         .copy(
           picked = false,
@@ -449,7 +449,9 @@ class CouchbaseTaskRepository(
       .query(
         query,
         parameters = parameters,
-        readonly = true
+        readonly = true,
+        profile = QueryProfile.OFF,
+        consistency = QueryScanConsistency.requestPlus()
       ).execute {
         emit(serializer.deserialize(T::class.java, it.content))
       }

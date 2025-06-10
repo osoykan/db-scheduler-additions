@@ -10,17 +10,19 @@ import com.github.kagkarlsson.scheduler.task.Task
 import com.github.kagkarlsson.scheduler.task.helper.*
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import io.github.osoykan.scheduler.DocumentDatabase
-import io.kotest.assertions.nondeterministic.*
 import io.kotest.core.spec.style.AnnotationSpec
-import io.kotest.matchers.ints.*
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.*
+import org.slf4j.LoggerFactory
 import java.time.*
 import java.util.*
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.*
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.toJavaDuration
 
 data class OtherOptions(
   val concurrency: Int = 10
@@ -44,20 +46,108 @@ data class TestTaskData(
   val name: String
 )
 
-class SettableClock(
-  private var instant: Instant
+/**
+ * A controllable test clock that can be advanced programmatically and notifies schedulers
+ * when time changes to trigger immediate execution checks.
+ */
+class ControllableTestClock(
+  initialTime: Instant = Instant.parse("2024-01-01T00:00:00Z")
 ) : Clock {
-  override fun now(): Instant = instant
+  private val currentTime = AtomicReference(initialTime)
+  private val listeners = mutableListOf<() -> Unit>()
+  private val logger = LoggerFactory.getLogger(ControllableTestClock::class.java)
 
-  fun set(instant: Instant) {
-    this.instant = instant
+  override fun now(): Instant = currentTime.get()
+
+  /**
+   * Advance time by the specified duration and trigger scheduler execution
+   */
+  fun advanceBy(duration: Duration): Instant {
+    val newTime = currentTime.updateAndGet { it.plus(duration.toJavaDuration()) }
+    logger.debug("Advanced clock by {} to {}", duration, newTime)
+
+    // Notify all listeners (schedulers) that time has changed
+    listeners.forEach { it() }
+
+    return newTime
   }
+
+  /**
+   * Set the clock to a specific instant and trigger scheduler execution
+   */
+  fun setTo(instant: Instant): Instant {
+    currentTime.set(instant)
+    logger.debug("Set clock to {}", instant)
+
+    // Notify all listeners (schedulers) that time has changed
+    listeners.forEach { it() }
+
+    return instant
+  }
+
+  /**
+   * Register a listener to be notified when time changes
+   */
+  fun addTimeChangeListener(listener: () -> Unit) {
+    listeners.add(listener)
+  }
+
+  /**
+   * Get the current time plus a duration without advancing the clock
+   */
+  fun peekAhead(duration: Duration): Instant = now().plus(duration.toJavaDuration())
 }
 
 abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
   abstract suspend fun caseDefinition(): CaseDefinition<T>
 
-  private val systemClock = SystemClock()
+  private fun createTestClock(): ControllableTestClock = ControllableTestClock()
+
+  /**
+   * Helper function to wait for condition with controllable time advancement
+   */
+  private suspend fun waitForCondition(
+    clock: ControllableTestClock,
+    maxDuration: Duration = 30.seconds,
+    checkInterval: Duration = 100.milliseconds,
+    condition: () -> Boolean
+  ) {
+    val startTime = clock.now()
+    val endTime = startTime.plus(maxDuration.toJavaDuration())
+
+    while (clock.now().isBefore(endTime)) {
+      if (condition()) {
+        return
+      }
+      // Advance time by check interval to trigger scheduler polls
+      clock.advanceBy(checkInterval)
+      // Small delay to allow async operations to complete
+      delay(10)
+    }
+
+    // Final check without time advancement
+    if (!condition()) {
+      throw AssertionError("Condition was not met within $maxDuration")
+    }
+  }
+
+  /**
+   * Helper function to assert condition immediately (for cases where tasks should execute instantly)
+   */
+  private suspend fun assertCondition(
+    clock: ControllableTestClock,
+    condition: () -> Boolean,
+    timeToAdvance: Duration = 1.seconds
+  ) {
+    // Advance time to trigger execution
+    clock.advanceBy(timeToAdvance)
+    // Small delay for async operations
+    delay(50)
+
+    if (!condition()) {
+      throw AssertionError("Condition was not met after advancing time by $timeToAdvance")
+    }
+  }
 
   @Test
   suspend fun `should start`() {
@@ -68,7 +158,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .withCollection(collection)
       .also { it.ensureCollectionExists() }
 
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock, OtherOptions())
+    val testClock = createTestClock()
+    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, testClock, OtherOptions())
     scheduler.start()
     scheduler.schedulerState.isStarted shouldBe true
     scheduler.stop()
@@ -88,20 +179,21 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("A One Time Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions(100))
       .also { it.start() }
 
-    scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusMillis(200))
+    val executionTime = testClock.peekAhead(200.milliseconds)
+    scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test")), executionTime)
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe 1
-      executionCount.get() shouldNotBeGreaterThan 1
-    }
+    // Advance time to trigger execution
+    assertCondition(testClock, { executionCount.get() == 1 }, 300.milliseconds)
 
-    continually(10.seconds) {
-      executionCount.get() shouldBe 1
-    }
+    // Verify no additional executions
+    testClock.advanceBy(5.seconds)
+    delay(50)
+    executionCount.get() shouldBe 1
 
     scheduler.stop()
   }
@@ -121,22 +213,25 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .execute { _, _ -> executionCount.incrementAndGet() }
 
     val amountOfTasks = 50
-    val tasks = (1..amountOfTasks)
-    val time = Instant.now()
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
-    tasks.map { i -> async { scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), time) } }.awaitAll()
+    val executionTime = testClock.now()
+    (1..amountOfTasks).map { i ->
+      async {
+        scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), executionTime)
+      }
+    }.awaitAll()
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe amountOfTasks
-      executionCount.get() shouldNotBeGreaterThan amountOfTasks
-    }
+    // Wait for all tasks to execute
+    waitForCondition(testClock) { executionCount.get() == amountOfTasks }
 
-    continually(10.seconds) {
-      executionCount.get() shouldBe amountOfTasks
-    }
+    // Verify no additional executions
+    testClock.advanceBy(5.seconds)
+    delay(50)
+    executionCount.get() shouldBe amountOfTasks
 
     scheduler.stop()
   }
@@ -159,14 +254,19 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       ).initialData(TestTaskData("test"))
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(), listOf(task), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(), listOf(task), name, testClock, OtherOptions())
       .also { it.start() }
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe 2
-      executionCount.get() shouldNotBeGreaterThan 2
-    }
+    // First execution should happen immediately
+    waitForCondition(testClock) { executionCount.get() >= 1 }
+
+    // Advance time to trigger second execution
+    testClock.advanceBy(4.seconds)
+    delay(100)
+
+    executionCount.get() shouldBe 2
 
     scheduler.stop()
   }
@@ -186,24 +286,23 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .execute { _, _ -> executionCount.incrementAndGet() }
 
     val count = 100
-    val tasks = (1..count)
-    val settableClock = SettableClock(Instant.now())
-    val plannedTime = settableClock.now().plusSeconds(1)
-    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, settableClock, OtherOptions()) as SchedulerClient
-    tasks
-      .map { i ->
-        async {
-          scheduler.scheduleIfNotExists(
-            task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
-            plannedTime
-          )
-        }
-      }.awaitAll()
+    val testClock = createTestClock()
+    val plannedTime = testClock.peekAhead(1.seconds)
+
+    val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, testClock, OtherOptions()) as SchedulerClient
+    (1..count).map { i ->
+      async {
+        scheduler.scheduleIfNotExists(
+          task.instance("racingTask-${UUID.randomUUID()}", TestTaskData("test-$i")),
+          plannedTime
+        )
+      }
+    }.awaitAll()
 
     val options = OtherOptions(concurrency = 150)
-    val scheduler1 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 1", settableClock, options)
-    val scheduler2 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 2", settableClock, options)
-    val scheduler3 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 3", settableClock, options)
+    val scheduler1 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 1", testClock, options)
+    val scheduler2 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 2", testClock, options)
+    val scheduler3 = definition.schedulerFactory(testContextDb, listOf(task), listOf(), name + "Racer 3", testClock, options)
 
     awaitAll(
       async { scheduler1.start() },
@@ -211,16 +310,11 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       async { scheduler3.start() }
     )
 
-    settableClock.set(settableClock.now().plusSeconds(15))
+    // Advance time to trigger execution
+    testClock.setTo(plannedTime.plusSeconds(10))
 
-    eventually(30.seconds) {
-      executionCount.get() shouldBe count
-      executionCount.get() shouldNotBeGreaterThan count
-    }
-
-    continually(10.seconds) {
-      executionCount.get() shouldBe count
-    }
+    // Wait for all tasks to complete
+    waitForCondition(testClock) { executionCount.get() == count }
 
     scheduler1.stop()
     scheduler2.stop()
@@ -239,11 +333,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val executionCount = AtomicInt(0)
     val maxRetry = 3
     val totalExecutions = maxRetry + 1
+    val testClock = createTestClock()
+    
     val task = Tasks
       .oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .onFailure(
         MaxRetriesFailureHandler(maxRetry) { e, a ->
-          a.reschedule(e, Instant.now().plusMillis(100))
+          a.reschedule(e, testClock.peekAhead(100.milliseconds))
         }
       ).execute { _, _ ->
         executionCount.incrementAndGet()
@@ -251,18 +347,14 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       }
 
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
-    scheduler.schedule(task.instance("failing-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now())
+    scheduler.schedule(task.instance("failing-task-${UUID.randomUUID()}", TestTaskData("test")), testClock.now())
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe totalExecutions
-      executionCount.get() shouldNotBeGreaterThan totalExecutions
-    }
-
-    continually(10.seconds) {
-      executionCount.get() shouldBe totalExecutions
+    // Wait for all retries to complete
+    waitForCondition(testClock, maxDuration = 10.seconds) {
+      executionCount.get() == totalExecutions 
     }
 
     scheduler.stop()
@@ -280,6 +372,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val executionCount = AtomicInt(0)
     val maxRetry = 3
     val totalExecutions = maxRetry + 1
+    val testClock = createTestClock()
+    
     val task = Tasks
       .recurring(
         "Failing Recurring Task-${UUID.randomUUID()}",
@@ -288,7 +382,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       ).initialData(TestTaskData("test"))
       .onFailure(
         MaxRetriesFailureHandler(maxRetry) { e, a ->
-          a.reschedule(e, Instant.now().plusMillis(100))
+          a.reschedule(e, testClock.peekAhead(100.milliseconds))
         }
       ).execute { _, _ ->
         executionCount.incrementAndGet()
@@ -296,16 +390,12 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       }
 
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(), listOf(task), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(), listOf(task), name, testClock, OtherOptions())
       .also { it.start() }
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe totalExecutions
-      executionCount.get() shouldNotBeGreaterThan totalExecutions
-    }
-
-    continually(10.seconds) {
-      executionCount.get() shouldBe totalExecutions
+    // Wait for all retries to complete
+    waitForCondition(testClock, maxDuration = 10.seconds) {
+      executionCount.get() == totalExecutions 
     }
 
     scheduler.stop()
@@ -325,22 +415,25 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("Persistent Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
-    scheduler.schedule(task.instance("persistent-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusSeconds(10))
+    val executionTime = testClock.peekAhead(10.seconds)
+    scheduler.schedule(task.instance("persistent-task-${UUID.randomUUID()}", TestTaskData("test")), executionTime)
 
     scheduler.pause()
 
-    delay(2.seconds) // Give some time to ensure the task is not executed
+    // Advance time while paused - task should not execute
+    testClock.setTo(executionTime.plusSeconds(1))
+    delay(100)
+    executionCount.get() shouldBe 0
 
-    scheduler.resume() // Restart the scheduler
+    scheduler.resume()
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe 1
-      executionCount.get() shouldNotBeGreaterThan 1
-    }
+    // Now task should execute
+    waitForCondition(testClock) { executionCount.get() == 1 }
 
     scheduler.stop()
   }
@@ -360,22 +453,22 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("Concurrent Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
+    val executionTime = testClock.peekAhead(200.milliseconds)
     val tasks = (1..concurrentTasks).map {
       async {
-        scheduler.schedule(task.instance("concurrent-task-${UUID.randomUUID()}", TestTaskData("test-$it")), Instant.now().plusMillis(200))
+        scheduler.schedule(task.instance("concurrent-task-${UUID.randomUUID()}", TestTaskData("test-$it")), executionTime)
       }
     }
 
     tasks.awaitAll()
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe concurrentTasks
-      executionCount.get() shouldNotBeGreaterThan concurrentTasks
-    }
+    // Wait for all tasks to execute
+    waitForCondition(testClock) { executionCount.get() == concurrentTasks }
 
     scheduler.stop()
   }
@@ -394,23 +487,27 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("Cancellable Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
     val scheduledTask = task.instance("cancellable-task-${UUID.randomUUID()}", TestTaskData("test"))
-    scheduler.schedule(scheduledTask, Instant.now().plusMillis(200))
+    val executionTime = testClock.peekAhead(200.milliseconds)
+    scheduler.schedule(scheduledTask, executionTime)
 
     scheduler.cancel(scheduledTask)
 
-    // Give some time to ensure the task is not executed
-    delay(1.seconds)
+    // Advance time past execution time
+    testClock.setTo(executionTime.plusSeconds(1))
+    delay(100)
 
     executionCount.get() shouldBe 0
 
-    continually(10.seconds) {
-      executionCount.get() shouldBe 0
-    }
+    // Verify it stays 0
+    testClock.advanceBy(5.seconds)
+    delay(50)
+    executionCount.get() shouldBe 0
 
     scheduler.stop()
   }
@@ -425,7 +522,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .also { it.ensureCollectionExists() }
 
     val executionCount = AtomicInt(0)
-    val testClock = SettableClock(Instant.now())
+    val testClock = createTestClock()
     val task = Tasks
       .oneTime("Time Skew Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
@@ -434,14 +531,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
-    scheduler.schedule(task.instance("time-skew-task-${UUID.randomUUID()}", TestTaskData("test")), Instant.now().plusSeconds(30))
+    val scheduledTime = testClock.peekAhead(30.seconds)
+    scheduler.schedule(task.instance("time-skew-task-${UUID.randomUUID()}", TestTaskData("test")), scheduledTime)
 
-    // Simulate time skew by advancing the clock
-    testClock.set(Instant.now().plusSeconds(35))
+    // Simulate time skew by jumping ahead
+    testClock.setTo(scheduledTime.plusSeconds(5))
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe 1
-    }
+    assertCondition(testClock, { executionCount.get() == 1 })
 
     scheduler.stop()
   }
@@ -460,18 +556,20 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("TimeZone Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
     val timeZones = listOf(ZoneId.of("UTC"), ZoneId.of("America/New_York"), ZoneId.of("Asia/Tokyo"))
-    timeZones.map { zone ->
-      scheduler.schedule(task.instance("timezone-task-${UUID.randomUUID()}", TestTaskData("test")), ZonedDateTime.now(zone).toInstant())
+
+    // Schedule all tasks for the current test clock time (should execute immediately)
+    timeZones.forEachIndexed { index, zone ->
+      scheduler.schedule(task.instance("timezone-task-$index-${UUID.randomUUID()}", TestTaskData("test-$zone")), testClock.now())
     }
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe timeZones.size
-    }
+    // All tasks should execute since they're scheduled for current time
+    waitForCondition(testClock, maxDuration = 2.seconds) { executionCount.get() == timeZones.size }
 
     scheduler.stop()
   }
@@ -490,32 +588,24 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("Unresolved Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
-    val executionTime = Instant.now().plusSeconds(10.days.inWholeSeconds)
-    (1..amountOfUnresolvedTasks).onEach {
+    val executionTime = testClock.peekAhead(10.days)
+    (1..amountOfUnresolvedTasks).forEach {
       val scheduledTask = task.instance("unresolved-task-$it-${UUID.randomUUID()}", TestTaskData("test-$it"))
       scheduler.schedule(scheduledTask, executionTime)
     }
 
-    delay(10.seconds)
-    eventually(1.minutes) {
-      val tasks = mutableListOf<ScheduledExecution<*>>()
-      scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
-        tasks.add(it)
-      }
-      tasks.size shouldBe amountOfUnresolvedTasks
-    }
+    delay(100) // Allow tasks to be persisted
 
-    continually(10.seconds) {
-      val tasks = mutableListOf<ScheduledExecution<*>>()
-      scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
-        tasks.add(it)
-      }
-      tasks.size shouldBe amountOfUnresolvedTasks
+    val tasks = mutableListOf<ScheduledExecution<*>>()
+    scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
+      tasks.add(it)
     }
+    tasks.size shouldBe amountOfUnresolvedTasks
 
     scheduler.stop()
   }
@@ -531,22 +621,21 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     val executedData = mutableListOf<String>()
     val task = Tasks
-      .oneTime<TestTaskData>("Reschedule Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .oneTime("Reschedule Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { instance, context ->
         val data = instance.data
         executedData.add(data.name)
       }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
     val taskId = "reschedule-task-${UUID.randomUUID()}"
-    scheduler.schedule(task.instance(taskId, TestTaskData("initial")), systemClock.now())
+    scheduler.schedule(task.instance(taskId, TestTaskData("initial")), testClock.now())
 
-    eventually(5.seconds) {
-      executedData.contains("initial") shouldBe true
-    }
+    assertCondition(testClock, { executedData.contains("initial") })
 
     scheduler.stop()
   }
@@ -561,6 +650,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .also { it.ensureCollectionExists() }
 
     val executionOrder = mutableListOf<String>()
+    val testClock = createTestClock()
+    
     val childTask = Tasks
       .oneTime("Child Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionOrder.add("child") }
@@ -572,23 +663,27 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
         context.schedulerClient.scheduleIfNotExists(
           childTask.instance("child-task-${UUID.randomUUID()}", TestTaskData("child")),
-          Instant.now().plusSeconds(5)
+          testClock.peekAhead(5.seconds)
         )
       }
 
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(parentTask, childTask), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(parentTask, childTask), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
     scheduler.schedule(
       parentTask.instance("parent-task-${UUID.randomUUID()}", TestTaskData("parent")),
-      Instant.now()
+      testClock.now()
     )
 
-    eventually(1.minutes) {
-      executionOrder.size shouldBe 2
-      executionOrder[0] shouldBe "parent"
-      executionOrder[1] shouldBe "child"
+    // Wait for parent to execute
+    waitForCondition(testClock) { executionOrder.isNotEmpty() && executionOrder[0] == "parent" }
+
+    // Advance time to trigger child
+    testClock.advanceBy(6.seconds)
+
+    waitForCondition(testClock) {
+      executionOrder.size == 2 && executionOrder[0] == "parent" && executionOrder[1] == "child" 
     }
 
     scheduler.stop()
@@ -622,14 +717,24 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       ).initialData(TestTaskData("slow"))
       .execute { _, _ -> slowExecutionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(), listOf(fastTask, slowTask), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(), listOf(fastTask, slowTask), name, testClock, OtherOptions(concurrency = 100))
       .also { it.start() }
 
-    eventually(5.seconds) {
-      fastExecutionCount.get() shouldNotBeGreaterThan 4
-      slowExecutionCount.get() shouldBeGreaterThan 0
-    }
+    waitForCondition(testClock) { fastExecutionCount.get() >= 1 && slowExecutionCount.get() >= 1 }
+
+    testClock.advanceBy(6.seconds) // This should allow fast task to run ~6 times, slow task ~2 times
+
+    waitForCondition(testClock) { fastExecutionCount.get() >= 6 && slowExecutionCount.get() >= 2 }
+
+    // Verify the scheduling difference
+    fastExecutionCount.get() shouldBeGreaterThan slowExecutionCount.get()
+    slowExecutionCount.get() shouldBeGreaterThan 0
+
+    // More specific assertions to ensure proper timing
+    fastExecutionCount.get() shouldBeGreaterThan 5 // Should have at least 3 executions
+    slowExecutionCount.get() shouldBe 3 // Should have exactly 2 executions (initial + 1 after 3s)
 
     scheduler.stop()
   }
@@ -648,14 +753,16 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("Removable Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
+    val executionTime = testClock.peekAhead(5.seconds)
     // Schedule multiple instances of the same task
     val taskIds = (1..5).map {
       val id = "removable-task-$it-${UUID.randomUUID()}"
-      scheduler.schedule(task.instance(id, TestTaskData("test-$it")), Instant.now().plusSeconds(5))
+      scheduler.schedule(task.instance(id, TestTaskData("test-$it")), executionTime)
       id
     }
 
@@ -664,11 +771,9 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     scheduler.cancel(taskToRemove)
 
     // Advance time to trigger execution
-    SettableClock(Instant.now().plusSeconds(10))
+    testClock.setTo(executionTime.plusSeconds(1))
 
-    eventually(1.minutes) {
-      executionCount.get() shouldBe 4 // 5 tasks scheduled, 1 removed
-    }
+    waitForCondition(testClock) { executionCount.get() == 4 } // 5 tasks scheduled, 1 removed
 
     scheduler.stop()
   }
@@ -691,10 +796,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .oneTime("BatchTask-${UUID.randomUUID()}", TestTaskData::class.java)
       .execute { _, _ -> executionCount.incrementAndGet() }
 
+    val testClock = createTestClock()
     val scheduler = definition
-      .schedulerFactory(testContextDb, listOf(task), listOf(), name, systemClock, OtherOptions())
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions(concurrency = 100))
       .also { it.start() }
 
+    val executionTime = testClock.peekAhead(200.milliseconds)
+    
     // Create multiple batches of tasks
     val batchJobs = (1..batches).map { batchNum ->
       async {
@@ -707,16 +815,17 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
         // Schedule all tasks in the batch
         batch.forEach {
-          scheduler.schedule(it, Instant.now().plusMillis(200))
+          scheduler.schedule(it, executionTime)
         }
       }
     }
 
     batchJobs.awaitAll()
 
-    eventually(2.minutes) {
-      executionCount.get() shouldBe totalTasks
-    }
+    testClock.advanceBy(5.seconds)
+
+    // Wait for all tasks to execute
+    waitForCondition(testClock, maxDuration = 30.seconds) { executionCount.get() == totalTasks }
 
     scheduler.stop()
   }

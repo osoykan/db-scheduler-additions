@@ -7,7 +7,7 @@ import io.kotest.core.spec.Spec
 import org.bson.UuidRepresentation
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 private const val MONGO_DB_NAME = "db-scheduler"
@@ -48,9 +48,13 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
       startupTasks(*startupTasks.toTypedArray())
       name(name)
       clock(clock)
-      shutdownMaxWait(1.seconds)
-      deleteUnresolvedAfter(10.minutes)
+      // Optimized settings for fast testing
+      shutdownMaxWait(100.milliseconds)
+      deleteUnresolvedAfter(1.seconds)
       fixedThreadPoolSize(options.concurrency)
+      corePoolSize(2)
+      heartbeatInterval(50.milliseconds) // Fast heartbeat for responsive testing
+      executeDue(50.milliseconds) // Fast polling for responsive testing
     }
   }
 }
