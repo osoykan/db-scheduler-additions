@@ -28,6 +28,8 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
       .applyConnectionString(ConnectionString(mongoContainer.connectionString))
       .uuidRepresentation(UuidRepresentation.STANDARD)
       .readConcern(ReadConcern.MAJORITY)
+      .retryWrites(true)
+      .retryReads(true)
       .codecRegistry(
         PojoRegistry()
           .register<MongoTaskEntity>()
