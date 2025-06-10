@@ -2,6 +2,7 @@ package io.github.osoykan.scheduler.mongo
 
 import com.github.kagkarlsson.scheduler.*
 import com.github.kagkarlsson.scheduler.Waiter
+import com.github.kagkarlsson.scheduler.event.SchedulerListeners
 import com.github.kagkarlsson.scheduler.stats.*
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
 import com.mongodb.kotlin.client.coroutine.*
@@ -39,7 +40,8 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
     requireNotNull(database) { "Database must be provided" }
 
     val statsRegistry = MicrometerStatsRegistry(meterRegistry, knownTasks + startupTasks)
-    val taskResolver = TaskResolver(statsRegistry, clock, knownTasks + startupTasks)
+    val listeners = listeners + StatsRegistryAdapter(statsRegistry)
+    val taskResolver = TaskResolver(SchedulerListeners(listeners), clock, knownTasks + startupTasks)
     executorService = Executors.newFixedThreadPool(
       fixedThreadPoolSize,
       NamedThreadFactory("db-scheduler-executor-$name")
@@ -85,7 +87,7 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
       pollingStrategy = PollingStrategyConfig.DEFAULT_SELECT_FOR_UPDATE,
       shutdownMaxWait = shutdownMaxWait,
       numberOfMissedHeartbeatsBeforeDead = numberOfMissedHeartbeatsBeforeDead,
-      schedulerListeners = listeners + listOf(StatsRegistryAdapter(statsRegistry))
+      schedulerListeners = listeners
     ) {
       schedulerScope?.cancel("Scheduler shutdown")
       executorService?.shutdown()
