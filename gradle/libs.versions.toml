@@ -72,13 +72,13 @@ datafaker = { module = "net.datafaker:datafaker", version = "2.4.3" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.7" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.3.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.7" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.1" }
-testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.1" }
-testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.1" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.2" }
+testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.2" }
+testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.2" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "7.0.4" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.32.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.33.0" }
