@@ -76,3 +76,4 @@ spotless = { id = "com.diffplug.spotless", version = "7.2.1" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.1" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.34.0" }
+node = { id = "com.github.node-gradle.node", version = "7.1.0" }
