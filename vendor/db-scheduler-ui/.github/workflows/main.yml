@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build frontend and all packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Ensure "bd-scheduler" is not in code changes
+        run: |
+          git fetch origin main
+          git diff origin/main..HEAD -- . ':!.github/workflows' | grep -i "bd-scheduler" && echo "Found forbidden word: bd-scheduler" && exit 1 || echo "Check passed"
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Node.js dependencies
+        run: |
+          cd db-scheduler-ui-frontend
+          npm install
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+            java-version: '17'
+            distribution: 'temurin'
+
+      - name: Build all packages with Maven
+        run: mvn --batch-mode --update-snapshots package -DskipTests
