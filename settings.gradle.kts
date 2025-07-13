@@ -11,6 +11,10 @@ include(
   "examples:db-scheduler-ktor-example"
 )
 
+plugins {
+  id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 pluginManagement {
   repositories {
     mavenCentral()
