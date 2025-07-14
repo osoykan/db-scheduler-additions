@@ -1,10 +1,10 @@
 [versions]
 kotlin = "2.0.20"
 kotlinx = "1.10.2"
-couchbase-client-kotlin = "1.5.2"
+couchbase-client-kotlin = "1.5.3"
 jackson = "2.19.1"
 arrow = "2.1.2"
-micrometer-prometheus = "1.15.1"
+micrometer-prometheus = "1.15.2"
 detekt = "1.23.8"
 dbscheduler = "15.6.0"
 slf4j = "2.0.17"
@@ -68,7 +68,7 @@ mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-corouti
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 kotest-framework-api-jvm = { module = "io.kotest:kotest-framework-api-jvm", version.ref = "kotest" }
-datafaker = { module = "net.datafaker:datafaker", version = "2.4.3" }
+datafaker = { module = "net.datafaker:datafaker", version = "2.4.4" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.7" }
 hikari = { module = "com.zaxxer:HikariCP", version = "6.3.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.7" }
