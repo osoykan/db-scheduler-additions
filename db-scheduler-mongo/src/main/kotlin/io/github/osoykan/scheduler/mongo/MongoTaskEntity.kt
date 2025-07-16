@@ -7,31 +7,31 @@ import java.time.Instant
 class MongoTaskEntity
   @BsonCreator
   constructor(
-    @BsonProperty("taskName")
+    @param:BsonProperty("taskName")
     override val taskName: String,
-    @BsonProperty("taskInstance")
+    @param:BsonProperty("taskInstance")
     override val taskInstance: String,
-    @BsonProperty("taskData")
+    @param:BsonProperty("taskData")
     override val taskData: ByteArray,
-    @BsonProperty("executionTime")
+    @param:BsonProperty("executionTime")
     override val executionTime: Instant?,
-    @BsonProperty("picked")
+    @param:BsonProperty("picked")
     override val picked: Boolean,
-    @BsonProperty("pickedBy")
+    @param:BsonProperty("pickedBy")
     override val pickedBy: String?,
-    @BsonProperty("consecutiveFailures")
+    @param:BsonProperty("consecutiveFailures")
     override val consecutiveFailures: Int,
-    @BsonProperty("lastSuccess")
+    @param:BsonProperty("lastSuccess")
     override val lastSuccess: Instant?,
-    @BsonProperty("lastFailure")
+    @param:BsonProperty("lastFailure")
     override val lastFailure: Instant?,
-    @BsonProperty("lastHeartbeat")
+    @param:BsonProperty("lastHeartbeat")
     override val lastHeartbeat: Instant?,
-    @BsonProperty("version")
+    @param:BsonProperty("version")
     override val version: Long,
-    @BsonProperty("metadata")
+    @param:BsonProperty("metadata")
     override val metadata: MutableMap<String, Any> = mutableMapOf(),
-    @BsonProperty("identity")
+    @param:BsonProperty("identity")
     override val identity: String = documentId(taskName, taskInstance)
   ) : TaskEntity(
       taskName,

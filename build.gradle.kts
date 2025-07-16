@@ -1,5 +1,3 @@
-import com.vanniktech.maven.publish.SonatypeHost
-
 group = "io.github.osoykan"
 version = "0.0.7"
 
@@ -20,25 +18,35 @@ subprojects {
     plugin(rootProject.libs.plugins.testLogger.pluginId)
   }
 
-  testlogger {
-    setTheme("mocha")
-    showExceptions = true
-    showFailedStandardStreams = true
-    showFailed = true
-  }
-
   dependencies {
     kover(project)
   }
 
   tasks.test {
     useJUnitPlatform()
+    testlogger {
+      setTheme("mocha")
+      showExceptions = true
+      showFailedStandardStreams = true
+      showFailed = true
+    }
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2)
   }
 
   kotlin {
     compilerOptions {
       jvmToolchain(17)
-      freeCompilerArgs = listOf("-Xjsr305=strict", "-Xcontext-receivers")
+      freeCompilerArgs = listOf(
+        "-Xjsr305=strict",
+        "-Xcontext-parameters",
+        "-Xnested-type-aliases",
+        "-Xwhen-guards",
+        "-Xsuppress-version-warnings",
+        "-Xwarning-level=IDENTITY_SENSITIVE_OPERATIONS_WITH_VALUE_TYPE:disabled",
+        "-opt-in=kotlin.RequiresOptIn",
+        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        "-opt-in=kotlin.contracts.ExperimentalContracts"
+      )
       allWarningsAsErrors = true
     }
   }
@@ -65,7 +73,7 @@ subprojects.of(projects.dbSchedulerAdditions.name, filter = { p -> publishedProj
 
   mavenPublishing {
     coordinates(groupId = rootProject.group.toString(), artifactId = project.name, version = rootProject.version.toString())
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral()
     pom {
       name.set(project.name)
       description.set(project.properties["projectDescription"].toString())

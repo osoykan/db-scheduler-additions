@@ -59,7 +59,8 @@ class CouchbaseSchedulerUseCases : SchedulerUseCases<Couchbase>() {
     couchbase = Couchbase(cluster, BUCKET_NAME)
   }
 
-  override fun afterSpec(f: suspend (Spec) -> Unit) {
+  override suspend fun afterSpec(spec: Spec) {
+    cluster.disconnect()
     container.stop()
   }
 
@@ -76,7 +77,7 @@ class CouchbaseSchedulerUseCases : SchedulerUseCases<Couchbase>() {
       fixedThreadPoolSize(options.concurrency)
       corePoolSize(2)
       heartbeatInterval(30.milliseconds) // Fast heartbeat for responsive testing
-      executeDue(50.milliseconds) // Fast polling for responsive testing
+      executeDue(10.milliseconds) // Even faster polling for responsive testing
     }
   }
 }

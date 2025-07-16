@@ -5,7 +5,8 @@ import com.github.kagkarlsson.scheduler.event.*
 import com.github.kagkarlsson.scheduler.logging.LogLevel
 import com.github.kagkarlsson.scheduler.task.OnStartup
 import java.util.concurrent.*
-import kotlin.time.*
+import kotlin.time.Duration
+import kotlin.time.toJavaDuration
 
 @Suppress("LongParameterList")
 class MongoScheduler(

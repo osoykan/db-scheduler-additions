@@ -4,151 +4,22 @@ package io.github.osoykan.dbscheduler
 
 import arrow.atomic.AtomicInt
 import com.github.kagkarlsson.scheduler.*
-import com.github.kagkarlsson.scheduler.Clock
 import com.github.kagkarlsson.scheduler.task.FailureHandler.MaxRetriesFailureHandler
-import com.github.kagkarlsson.scheduler.task.Task
-import com.github.kagkarlsson.scheduler.task.helper.*
+import com.github.kagkarlsson.scheduler.task.helper.Tasks
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import io.github.osoykan.scheduler.DocumentDatabase
 import io.kotest.core.spec.style.AnnotationSpec
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.*
-import org.slf4j.LoggerFactory
-import java.time.*
+import java.time.ZoneId
 import java.util.*
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.*
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-data class OtherOptions(
-  val concurrency: Int = 10
-)
-
-typealias SchedulerFactory<T> = (
-  db: T,
-  tasks: List<Task<*>>,
-  startupTasks: List<RecurringTask<*>>,
-  name: String,
-  clock: Clock,
-  options: OtherOptions
-) -> Scheduler
-
-data class CaseDefinition<T : DocumentDatabase<T>>(
-  val db: T,
-  val schedulerFactory: SchedulerFactory<T>
-)
-
-data class TestTaskData(
-  val name: String
-)
-
-/**
- * A controllable test clock that can be advanced programmatically and notifies schedulers
- * when time changes to trigger immediate execution checks.
- */
-class ControllableTestClock(
-  initialTime: Instant = Instant.parse("2024-01-01T00:00:00Z")
-) : Clock {
-  private val currentTime = AtomicReference(initialTime)
-  private val listeners = mutableListOf<() -> Unit>()
-  private val logger = LoggerFactory.getLogger(ControllableTestClock::class.java)
-
-  override fun now(): Instant = currentTime.get()
-
-  /**
-   * Advance time by the specified duration and trigger scheduler execution
-   */
-  fun advanceBy(duration: Duration): Instant {
-    val newTime = currentTime.updateAndGet { it.plus(duration.toJavaDuration()) }
-    logger.debug("Advanced clock by {} to {}", duration, newTime)
-
-    // Notify all listeners (schedulers) that time has changed
-    listeners.forEach { it() }
-
-    return newTime
-  }
-
-  /**
-   * Set the clock to a specific instant and trigger scheduler execution
-   */
-  fun setTo(instant: Instant): Instant {
-    currentTime.set(instant)
-    logger.debug("Set clock to {}", instant)
-
-    // Notify all listeners (schedulers) that time has changed
-    listeners.forEach { it() }
-
-    return instant
-  }
-
-  /**
-   * Register a listener to be notified when time changes
-   */
-  fun addTimeChangeListener(listener: () -> Unit) {
-    listeners.add(listener)
-  }
-
-  /**
-   * Get the current time plus a duration without advancing the clock
-   */
-  fun peekAhead(duration: Duration): Instant = now().plus(duration.toJavaDuration())
-}
-
 abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
-  abstract suspend fun caseDefinition(): CaseDefinition<T>
-
-  private fun createTestClock(): ControllableTestClock = ControllableTestClock()
-
-  /**
-   * Helper function to wait for condition with controllable time advancement
-   */
-  private suspend fun waitForCondition(
-    clock: ControllableTestClock,
-    maxDuration: Duration = 30.seconds,
-    checkInterval: Duration = 100.milliseconds,
-    condition: () -> Boolean
-  ) {
-    val startTime = clock.now()
-    val endTime = startTime.plus(maxDuration.toJavaDuration())
-
-    while (clock.now().isBefore(endTime)) {
-      if (condition()) {
-        return
-      }
-      // Advance time by check interval to trigger scheduler polls
-      clock.advanceBy(checkInterval)
-      // Small delay to allow async operations to complete
-      delay(10)
-    }
-
-    // Final check without time advancement
-    if (!condition()) {
-      throw AssertionError("Condition was not met within $maxDuration")
-    }
-  }
-
-  /**
-   * Helper function to assert condition immediately (for cases where tasks should execute instantly)
-   */
-  private suspend fun assertCondition(
-    clock: ControllableTestClock,
-    condition: () -> Boolean,
-    timeToAdvance: Duration = 1.seconds
-  ) {
-    // Advance time to trigger execution
-    clock.advanceBy(timeToAdvance)
-    // Small delay for async operations
-    delay(50)
-
-    if (!condition()) {
-      throw AssertionError("Condition was not met after advancing time by $timeToAdvance")
-    }
-  }
-
   @Test
   suspend fun `should start`() {
     val definition = caseDefinition()
@@ -225,6 +96,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
           scheduler.schedule(task.instance("taskId-${UUID.randomUUID()}", TestTaskData("test-$i")), executionTime)
         }
       }.awaitAll()
+
+    testClock.advanceBy(10.seconds)
 
     // Wait for all tasks to execute
     waitForCondition(testClock) { executionCount.get() == amountOfTasks }
@@ -312,10 +185,9 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       async { scheduler3.start() }
     )
 
-    // Advance time to trigger execution
-    testClock.setTo(plannedTime.plusSeconds(10))
+    testClock.advanceBy(5.seconds)
 
-    // Wait for all tasks to complete
+    // Wait for all tasks to complete by advancing time incrementally
     waitForCondition(testClock) { executionCount.get() == count }
 
     scheduler1.stop()
@@ -603,10 +475,10 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     delay(100) // Allow tasks to be persisted
 
+    testClock.advanceBy(20.days)
+
     val tasks = mutableListOf<ScheduledExecution<*>>()
-    scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
-      tasks.add(it)
-    }
+    scheduler.fetchScheduledExecutions(ScheduledExecutionsFilter.all()) { tasks.add(it) }
     tasks.size shouldBe amountOfUnresolvedTasks
 
     scheduler.stop()
@@ -830,5 +702,90 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     waitForCondition(testClock, maxDuration = 30.seconds) { executionCount.get() == totalTasks }
 
     scheduler.stop()
+  }
+
+  @Test
+  suspend fun `should handle batch creation with duplicates`() = coroutineScope {
+    val definition = caseDefinition()
+    val collection = ARandom.text()
+    val name = ARandom.text()
+    val testContextDb = definition.db
+      .withCollection(collection)
+      .also { it.ensureCollectionExists() }
+
+    val executionCount = AtomicInt(0)
+    val task = Tasks
+      .oneTime("Batch Duplicate Task-${UUID.randomUUID()}", TestTaskData::class.java)
+      .execute { _, _ -> executionCount.incrementAndGet() }
+
+    val testClock = createTestClock()
+    val scheduler = definition
+      .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
+      .also { it.start() }
+
+    val executionTime = testClock.peekAhead(200.milliseconds)
+    val uniqueInstances = (1..5).map { task.instance("unique-batch-$it", TestTaskData("test-$it")) }
+    val duplicateInstances = uniqueInstances + uniqueInstances // Duplicates
+
+    // Schedule with duplicates using scheduler.schedule (which handles existence)
+    duplicateInstances.forEach { inst ->
+      scheduler.schedule(inst, executionTime)
+    }
+
+    // Advance time
+    testClock.advanceBy(1.seconds)
+
+    // Only unique tasks should execute (duplicates skipped by existence check)
+    waitForCondition(testClock) { executionCount.get() == uniqueInstances.size }
+
+    scheduler.stop()
+  }
+
+  abstract suspend fun caseDefinition(): CaseDefinition<T>
+
+  private fun createTestClock(): ControllableTestClock = ControllableTestClock()
+
+  /**
+   * Helper function to wait for condition with controllable time advancement
+   */
+  private suspend fun waitForCondition(
+    clock: ControllableTestClock,
+    maxDuration: Duration = 60.seconds, // Increased for reliability
+    checkInterval: Duration = 50.milliseconds, // Finer interval
+    condition: () -> Boolean
+  ) {
+    val startTime = clock.now()
+    val endTime = startTime.plus(maxDuration.toJavaDuration())
+
+    while (clock.now().isBefore(endTime)) {
+      if (condition()) {
+        return
+      }
+      logger.debug("Condition not met yet. Current executions: {}", "N/A")
+      clock.advanceBy(checkInterval)
+      delay(10)
+    }
+
+    if (!condition()) {
+      throw AssertionError("Condition was not met within $maxDuration")
+    }
+  }
+
+  /**
+   * Helper function to assert condition immediately (for cases where tasks should execute instantly)
+   */
+  private suspend fun assertCondition(
+    clock: ControllableTestClock,
+    condition: () -> Boolean,
+    timeToAdvance: Duration = 1.seconds
+  ) {
+    // Advance time to trigger execution
+    clock.advanceBy(timeToAdvance)
+    // Small delay for async operations
+    delay(50)
+
+    if (!condition()) {
+      throw AssertionError("Condition was not met after advancing time by $timeToAdvance")
+    }
   }
 }

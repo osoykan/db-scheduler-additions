@@ -39,7 +39,8 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
     mongo = Mongo(client, MONGO_DB_NAME)
   }
 
-  override fun afterSpec(f: suspend (Spec) -> Unit) {
+  override suspend fun afterSpec(spec: Spec) {
+    client.close()
     mongoContainer.stop()
   }
 
@@ -56,7 +57,7 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
       fixedThreadPoolSize(options.concurrency)
       corePoolSize(2)
       heartbeatInterval(50.milliseconds) // Fast heartbeat for responsive testing
-      executeDue(50.milliseconds) // Fast polling for responsive testing
+      executeDue(10.milliseconds) // Even faster polling for responsive testing
     }
   }
 }
