@@ -8,12 +8,12 @@ micrometer-prometheus = "1.15.2"
 detekt = "1.23.8"
 dbscheduler = "16.0.0"
 slf4j = "2.0.17"
-ktor = "3.2.2"
+ktor = "3.2.3"
 koin = "4.1.0"
 mongodb = "5.5.1"
 
 ## test
-kotest = "6.0.0.M6"
+kotest = "6.0.0.M12"
 
 [libraries]
 # Kotlin
@@ -68,8 +68,8 @@ mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-corouti
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 datafaker = { module = "net.datafaker:datafaker", version = "2.4.4" }
-kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.7" }
-hikari = { module = "com.zaxxer:HikariCP", version = "7.0.0" }
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.12" }
+hikari = { module = "com.zaxxer:HikariCP", version = "7.0.1" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.7" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.3" }
 testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.3" }
