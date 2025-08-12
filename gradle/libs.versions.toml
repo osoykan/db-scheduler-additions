@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.2.0"
 kotlinx = "1.10.2"
-couchbase-client-kotlin = "1.5.3"
+couchbase-client-kotlin = "3.9.0"
 jackson = "2.19.2"
 arrow = "2.1.2"
 micrometer-prometheus = "1.15.3"
