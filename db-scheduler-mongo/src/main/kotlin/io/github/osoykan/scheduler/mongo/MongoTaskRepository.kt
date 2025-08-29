@@ -7,6 +7,7 @@ import com.github.kagkarlsson.scheduler.TaskResolver.UnresolvedTask
 import com.github.kagkarlsson.scheduler.exceptions.*
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.*
+import com.mongodb.*
 import com.mongodb.client.model.*
 import com.mongodb.kotlin.client.coroutine.MongoCollection
 import io.github.osoykan.scheduler.*
@@ -29,30 +30,31 @@ class MongoTaskRepository(
 
   override suspend fun createIfNotExists(
     execution: ScheduledTaskInstance
-  ): Boolean = getOption(execution.documentId())
-    .map {
-      logger.debug("Task with id {} already exists in the repository. Due:{}", execution.documentId(), it.executionTime)
-      false
-    }.recover {
-      val entity: MongoTaskEntity = toEntity(Execution(execution.executionTime, execution.taskInstance)).copy(picked = false)
-      collection.insertOne(entity).wasAcknowledged()
-    }.getOrElse { false }
+  ): Boolean = try {
+    val entity: MongoTaskEntity = toEntity(Execution(execution.executionTime, execution.taskInstance)).copy(picked = false)
+    collection.insertOne(entity).wasAcknowledged()
+  } catch (e: MongoWriteException) {
+    if (ErrorCategory.fromErrorCode(e.error.code) != ErrorCategory.DUPLICATE_KEY) {
+      throw e
+    }
+    logger.debug("Task with id {} already exists in the repository", execution.documentId(), e)
+    false
+  }
 
   override suspend fun createBatch(instances: List<ScheduledTaskInstance>) {
     if (instances.isEmpty()) return
 
-    val entitiesToInsert = instances.mapNotNull { instance ->
-      if (getOption(instance.documentId()).isSome()) {
-        logger.debug("Task with id {} already exists in the repository. Skipping.", instance.documentId())
-        null
-      } else {
-        toEntity(Execution(instance.executionTime, instance.taskInstance)).copy(picked = false)
-      }
+    val entitiesToInsert = instances.map { instance ->
+      toEntity(Execution(instance.executionTime, instance.taskInstance)).copy(picked = false)
     }
 
-    if (entitiesToInsert.isNotEmpty()) {
-      collection.insertMany(entitiesToInsert)
+    try {
+      // Use ordered=false to continue on duplicate key errors
+      collection.insertMany(entitiesToInsert, InsertManyOptions().ordered(false))
       logger.debug("Inserted {} tasks in batch", entitiesToInsert.size)
+    } catch (e: Exception) {
+      // Handle duplicate key errors gracefully - some tasks might already exist
+      logger.debug("Batch insert completed with some duplicates ignored: {}", e.message)
     }
   }
 
@@ -88,7 +90,7 @@ class MongoTaskRepository(
         Updates.set(MongoTaskEntity::consecutiveFailures.name, 0),
         Updates.set(MongoTaskEntity::executionTime.name, newExecutionTime),
         Updates.set(MongoTaskEntity::taskData.name, serializer.serialize(newExecution.taskInstance.data)),
-        Updates.set(MongoTaskEntity::version.name, 1)
+        Updates.inc(MongoTaskEntity::version.name, 1)
       ),
       FindOneAndUpdateOptions().upsert(false).returnDocument(ReturnDocument.AFTER)
     )
@@ -131,58 +133,58 @@ class MongoTaskRepository(
     now: Instant,
     limit: Int
   ): List<Execution> {
+    if (limit <= 0) return emptyList()
+
     val unresolvedCondition = UnresolvedFilter(taskResolver.unresolved)
-    val filter = Filters.and(
-      Filters.eq(MongoTaskEntity::picked.name, false),
-      Filters.lte(MongoTaskEntity::executionTime.name, now),
-      unresolvedCondition.asFilter()
-    )
     val pickedBy = schedulerName.name.take(SCHEDULER_NAME_TAKE)
     val lastHeartbeat = clock.now()
-    val toBePicked = collection
-      .find(filter)
-      .sort(Sorts.ascending(MongoTaskEntity::executionTime.name))
-      .limit(limit)
-      .toList()
+    val pickedExecutions = mutableListOf<Execution>()
 
-    val toBePickedFilter = toBePicked.map {
-      it to Filters.and(
-        Filters.eq(MongoTaskEntity::identity.name, it.identity),
+    // Use findOneAndUpdate in a loop for atomic pick operations
+    // Add a maximum iteration limit to prevent infinite loops
+    var remaining = limit
+    var attempts = 0
+    val maxAttempts = limit * 2 // Allow up to 2x limit attempts to account for race conditions
+
+    while (remaining > 0 && attempts < maxAttempts) {
+      attempts++
+
+      val filter = Filters.and(
         Filters.eq(MongoTaskEntity::picked.name, false),
-        Filters.eq(MongoTaskEntity::version.name, it.version),
         Filters.lte(MongoTaskEntity::executionTime.name, now),
         unresolvedCondition.asFilter()
       )
-    }
 
-    return toBePickedFilter.mapNotNull { (it, filter) ->
-      val updated = collection.updateOne(
+      val updatedEntity = collection.findOneAndUpdate(
         filter,
         Updates.combine(
           Updates.set(MongoTaskEntity::picked.name, true),
           Updates.set(MongoTaskEntity::pickedBy.name, pickedBy),
           Updates.set(MongoTaskEntity::lastHeartbeat.name, lastHeartbeat),
           Updates.inc(MongoTaskEntity::version.name, 1)
-        )
+        ),
+        FindOneAndUpdateOptions()
+          .sort(Sorts.ascending(MongoTaskEntity::executionTime.name))
+          .returnDocument(ReturnDocument.AFTER)
       )
-      if (updated.modifiedCount == 1L) {
-        val maybe = getOption(it.identity)
-        if (!maybe.isSome()) {
-          logger.debug("Unable to find picked execution. Must have been deleted by another thread. Indicates a bug.")
-          null
-        } else {
-          if (!maybe.getOrNull()!!.picked) {
-            logger.debug("Execution was not picked after pick operation. Indicates a bug.")
-            null
-          } else {
-            toExecution(maybe.getOrNull()!!)
-          }
-        }
+
+      if (updatedEntity != null) {
+        pickedExecutions.add(toExecution(updatedEntity))
+        remaining--
       } else {
-        logger.debug("Execution with id {} was already picked", it.identity)
-        null
+        // No more tasks available - exit early
+        break
       }
     }
+
+    logger.debug(
+      "lockAndFetchGeneric: picked {} tasks out of {} requested in {} attempts",
+      pickedExecutions.size,
+      limit,
+      attempts
+    )
+
+    return pickedExecutions
   }
 
   override suspend fun lockAndGetDue(
@@ -346,15 +348,15 @@ class MongoTaskRepository(
     val boundary = clock.now().minus(interval)
     return collection
       .find(
-        Filters.or(
-          Filters.and(
-            Filters.exists(MongoTaskEntity::lastFailure.name),
+        Filters.and(
+          Filters.exists(MongoTaskEntity::lastFailure.name),
+          Filters.or(
+            // No success at all, or last success before boundary
+            Filters.not(Filters.exists(MongoTaskEntity::lastSuccess.name)),
             Filters.lt(MongoTaskEntity::lastSuccess.name, boundary)
           ),
-          Filters.and(
-            Filters.exists(MongoTaskEntity::lastFailure.name),
-            Filters.lt(MongoTaskEntity::lastFailure.name, boundary)
-          )
+          // Last failure was before boundary (failing for longer than interval)
+          Filters.lt(MongoTaskEntity::lastFailure.name, boundary)
         )
       ).map { toExecution(it) }
       .toList()

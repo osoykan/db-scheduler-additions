@@ -388,7 +388,8 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       .schedulerFactory(testContextDb, listOf(task), listOf(), name, testClock, OtherOptions())
       .also { it.start() }
 
-    val executionTime = testClock.peekAhead(200.milliseconds)
+    // Schedule tasks for immediate execution (current time)
+    val executionTime = testClock.now()
     val tasks = (1..concurrentTasks).map {
       async {
         scheduler.schedule(task.instance("concurrent-task-${UUID.randomUUID()}", TestTaskData("test-$it")), executionTime)
@@ -396,6 +397,9 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     }
 
     tasks.awaitAll()
+
+    // Advance time to trigger execution since tasks are scheduled for current time
+    testClock.advanceBy(200.milliseconds)
 
     // Wait for all tasks to execute
     waitForCondition(testClock) { executionCount.get() == concurrentTasks }

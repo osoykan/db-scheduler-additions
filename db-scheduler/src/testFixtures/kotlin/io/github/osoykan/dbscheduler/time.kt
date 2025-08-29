@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package io.github.osoykan.dbscheduler
 
 import com.github.kagkarlsson.scheduler.Clock
@@ -10,7 +12,9 @@ import kotlin.time.*
  * when time changes to trigger immediate execution checks.
  */
 class ControllableTestClock(
-  initialTime: Instant = Instant.parse("2024-01-01T00:00:00Z")
+  initialTime: Instant = kotlin.time.Clock.System
+    .now()
+    .toJavaInstant()
 ) : Clock {
   private val currentTime = AtomicReference(initialTime)
   private val listeners = mutableListOf<() -> Unit>()

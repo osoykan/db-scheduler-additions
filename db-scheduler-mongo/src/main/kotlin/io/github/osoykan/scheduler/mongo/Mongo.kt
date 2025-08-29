@@ -11,6 +11,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.toList
 import org.slf4j.LoggerFactory
 import java.util.concurrent.*
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.toJavaDuration
 
 data class Mongo(
@@ -42,27 +43,16 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
     val statsRegistry = MicrometerStatsRegistry(meterRegistry, knownTasks + startupTasks)
     val listeners = listeners + StatsRegistryAdapter(statsRegistry)
     val taskResolver = TaskResolver(SchedulerListeners(listeners), clock, knownTasks + startupTasks)
-    executorService = Executors.newFixedThreadPool(
-      fixedThreadPoolSize,
-      NamedThreadFactory("db-scheduler-executor-$name")
-    )
 
     houseKeeperExecutorService = Executors.newScheduledThreadPool(
       corePoolSize,
       NamedThreadFactory("db-scheduler-house-keeper-executor-$name")
     )
 
-    val dispatcher = executorService!!.asCoroutineDispatcher()
-    schedulerScope = CoroutineScope(
-      dispatcher +
-        SupervisorJob() +
-        CoroutineName("db-scheduler-$name") +
-        CoroutineExceptionHandler { coroutineContext, throwable ->
-          LoggerFactory
-            .getLogger(MongoScheduler::class.java)
-            .error("Coroutine failed, context: {}", coroutineContext, throwable)
-        }
-    )
+    val supervisorJob = SupervisorJob()
+    schedulerScope = CoroutineScope(createCoroutineContext(supervisorJob))
+    executorService = schedulerScope!!.asExecutorService
+
     val taskRepository = KTaskRepository(
       MongoTaskRepository(clock, database!!, taskResolver, SchedulerName.Fixed(name), serializer),
       schedulerScope!!,
@@ -89,24 +79,55 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
       numberOfMissedHeartbeatsBeforeDead = numberOfMissedHeartbeatsBeforeDead,
       schedulerListeners = listeners
     ) {
-      schedulerScope?.cancel("Scheduler shutdown")
-      executorService?.shutdown()
-      houseKeeperExecutorService?.shutdown()
-
-      try {
-        if (executorService?.awaitTermination(30, TimeUnit.SECONDS) == false) {
-          executorService?.shutdownNow()
-        }
-        if (houseKeeperExecutorService?.awaitTermination(10, TimeUnit.SECONDS) == false) {
-          houseKeeperExecutorService?.shutdownNow()
-        }
-      } catch (_: InterruptedException) {
-        executorService?.shutdownNow()
-        houseKeeperExecutorService?.shutdownNow()
-        Thread.currentThread().interrupt()
-      }
+      shutdownGracefully(schedulerScope, supervisorJob, executorService, houseKeeperExecutorService)
     }
   }
+
+  private fun shutdownGracefully(
+    schedulerScope: CoroutineScope?,
+    supervisorJob: CompletableJob,
+    executorService: ExecutorService?,
+    houseKeeperExecutorService: ScheduledExecutorService?
+  ) {
+    schedulerScope?.cancel("Scheduler shutdown")
+
+    // Give coroutines time to complete gracefully
+    runBlocking {
+      try {
+        supervisorJob.children.forEach { it.join() }
+      } catch (e: Exception) {
+        LoggerFactory
+          .getLogger(MongoScheduler::class.java)
+          .warn("Some coroutines didn't complete gracefully during shutdown", e)
+      }
+    }
+
+    executorService?.shutdown()
+    houseKeeperExecutorService?.shutdown()
+
+    try {
+      if (executorService?.awaitTermination(30, TimeUnit.SECONDS) == false) {
+        executorService.shutdownNow()
+      }
+      if (houseKeeperExecutorService?.awaitTermination(10, TimeUnit.SECONDS) == false) {
+        houseKeeperExecutorService.shutdownNow()
+      }
+    } catch (_: InterruptedException) {
+      executorService?.shutdownNow()
+      houseKeeperExecutorService?.shutdownNow()
+      Thread.currentThread().interrupt()
+    }
+  }
+
+  private fun createCoroutineContext(
+    supervisorJob: CompletableJob
+  ): CoroutineContext = Dispatchers.IO + supervisorJob +
+    CoroutineName("db-scheduler-mongo-$name") +
+    CoroutineExceptionHandler { coroutineContext, throwable ->
+      LoggerFactory
+        .getLogger(MongoScheduler::class.java)
+        .error("Database operation failed, context: {}", coroutineContext, throwable)
+    }
 }
 
 @SchedulerDslMarker
