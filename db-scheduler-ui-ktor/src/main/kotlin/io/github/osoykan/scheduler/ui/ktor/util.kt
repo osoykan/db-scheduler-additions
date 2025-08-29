@@ -1,8 +1,9 @@
 package io.github.osoykan.scheduler.ui.ktor
 
+import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
+import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams
 import io.ktor.server.application.*
 import io.ktor.util.*
-import no.bekk.dbscheduler.ui.model.*
 import java.time.Instant
 
 private val loader = object {}.javaClass.classLoader
