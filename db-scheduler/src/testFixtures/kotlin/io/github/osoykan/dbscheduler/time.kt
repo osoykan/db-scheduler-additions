@@ -27,9 +27,9 @@ class ControllableTestClock(
     // Notify all listeners (schedulers) that time has changed
     // Use synchronized block to ensure all listeners are notified atomically
     synchronized(listeners) {
-      listeners.forEach { 
+      listeners.forEach {
         try {
-          it() 
+          it()
         } catch (e: Exception) {
           logger.warn("Error notifying time change listener", e)
         }
@@ -48,9 +48,9 @@ class ControllableTestClock(
 
     // Notify all listeners (schedulers) that time has changed
     synchronized(listeners) {
-      listeners.forEach { 
+      listeners.forEach {
         try {
-          it() 
+          it()
         } catch (e: Exception) {
           logger.warn("Error notifying time change listener", e)
         }

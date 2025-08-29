@@ -21,7 +21,6 @@ import kotlin.time.Duration.Companion.seconds
 
 @Suppress("UnnecessaryAbstractClass")
 abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
-  
   abstract suspend fun caseDefinition(): CaseDefinition<T>
 
   private fun createTestClock(): ControllableTestClock = ControllableTestClock()
@@ -62,7 +61,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
   ) {
     // Advance time to trigger execution
     clock.advanceBy(timeToAdvance)
-    
+
     // Use waitForCondition instead of immediate assertion for better reliability
     waitForCondition(clock, maxDuration = 5.seconds, checkInterval = 25.milliseconds, condition)
   }
@@ -204,7 +203,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val executionCount = AtomicInt(0)
     val task = Tasks
       .oneTime("RacingTasks-${UUID.randomUUID()}", TestTaskData::class.java)
-      .execute { _, _ -> 
+      .execute { _, _ ->
         val count = executionCount.incrementAndGet()
         logger.debug("Task executed, count: {}", count)
       }
@@ -214,7 +213,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val plannedTime = testClock.peekAhead(1.seconds)
 
     val scheduler = definition.schedulerFactory(testContextDb, listOf(), listOf(), name, testClock, OtherOptions()) as SchedulerClient
-    
+
     // Schedule tasks sequentially to avoid overwhelming the system
     repeat(count) { i ->
       scheduler.scheduleIfNotExists(
@@ -231,7 +230,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     // Start schedulers sequentially to avoid startup race conditions
     scheduler1.start()
     delay(50) // Small delay between starts
-    scheduler2.start() 
+    scheduler2.start()
     delay(50)
     scheduler3.start()
     delay(100) // Allow schedulers to initialize
@@ -240,10 +239,10 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     testClock.advanceBy(2.seconds)
 
     // Wait for all tasks to complete with better debugging
-    waitForCondition(testClock, maxDuration = 30.seconds) { 
+    waitForCondition(testClock, maxDuration = 30.seconds) {
       val current = executionCount.get()
       logger.debug("Racing test progress: {}/{}", current, count)
-      current == count 
+      current == count
     }
 
     // Stop schedulers gracefully
