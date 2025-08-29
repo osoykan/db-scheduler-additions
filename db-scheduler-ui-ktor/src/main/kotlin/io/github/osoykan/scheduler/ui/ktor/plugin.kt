@@ -58,11 +58,5 @@ data class DbSchedulerUIConfiguration(
     val history: Boolean = false,
     val logTableName: String = "scheduled_execution_logs",
     val logLimit: Int = 0
-  ) {
-    init {
-      if (history) {
-        error("History is not yet implemented, please enable it later, and follow the documentation")
-      }
-    }
-  }
+  )
 }
