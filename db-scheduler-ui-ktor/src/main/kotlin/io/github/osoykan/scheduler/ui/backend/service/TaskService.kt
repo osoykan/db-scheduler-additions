@@ -1,92 +1,103 @@
 package io.github.osoykan.scheduler.ui.backend.service
 
+import com.github.kagkarlsson.scheduler.ScheduledExecutionsFilter
 import com.github.kagkarlsson.scheduler.Scheduler
+import com.github.kagkarlsson.scheduler.ScheduledExecution
+import com.github.kagkarlsson.scheduler.task.TaskInstanceId
 import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
 import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams
 import io.github.osoykan.scheduler.ui.backend.util.Caching
-import java.sql.ResultSet
 import java.time.Instant
-import javax.sql.DataSource
 
 /**
- * Pure-Kotlin replacement for the original TaskLogic using JDBC + db-scheduler schema.
+ * Pure-Kotlin implementation of Task logic using db-scheduler APIs (no direct SQL).
  */
 internal class TaskService(
   private val scheduler: () -> Scheduler,
-  private val dataSource: () -> DataSource,
   private val caching: Caching<String, Any>,
   private val taskData: Boolean
 ) {
   fun getAllTasks(params: TaskRequestParams): Any {
-    val (where, args) = buildWhereClause(params)
-    val sort = buildSortClause(params)
+    val all = mutableListOf<ScheduledExecution<*>>()
+    scheduler().fetchScheduledExecutions(ScheduledExecutionsFilter.all()) { all += it }
+
+    // Apply in-memory filters
+    val filtered = all.asSequence()
+      .filter { e ->
+        when (params.filter) {
+          TaskRequestParams.TaskFilter.SCHEDULED -> !e.isPicked
+          TaskRequestParams.TaskFilter.RUNNING -> e.isPicked
+          TaskRequestParams.TaskFilter.FAILED -> (e.consecutiveFailures ?: 0) > 0
+          TaskRequestParams.TaskFilter.COMPLETED -> e.lastSuccess != null
+          else -> true
+        }
+      }
+      .filter { e ->
+        params.searchTermTaskName?.takeIf { it.isNotBlank() }?.let { term ->
+          val n = e.taskInstance.taskName
+          if (params.isTaskNameExactMatch) n == term else n.contains(term, ignoreCase = true)
+        } ?: true
+      }
+      .filter { e ->
+        params.searchTermTaskInstance?.takeIf { it.isNotBlank() }?.let { term ->
+          val i = e.taskInstance.id
+          if (params.isTaskInstanceExactMatch) i == term else i.contains(term, ignoreCase = true)
+        } ?: true
+      }
+      .filter { e -> params.startTime?.let { e.executionTime >= it } ?: true }
+      .filter { e -> params.endTime?.let { e.executionTime <= it } ?: true }
+      .toList()
+
+    // Sort
+    val comparator = when (params.sorting) {
+      TaskRequestParams.TaskSort.TASK_NAME -> compareBy<ScheduledExecution<*>> { it.taskInstance.taskName }
+      TaskRequestParams.TaskSort.TASK_INSTANCE -> compareBy { it.taskInstance.id }
+      TaskRequestParams.TaskSort.START_TIME -> compareBy { it.executionTime }
+      TaskRequestParams.TaskSort.END_TIME -> compareBy(nullsLast()) { it.lastSuccess }
+      else -> compareBy { it.executionTime }
+    }.let { if (params.isAsc) it else it.reversed() }
+
+    val sorted = filtered.sortedWith(comparator)
+
+    // Pagination
     val limit = params.size.coerceAtLeast(1)
-    val offset = (params.pageNumber.coerceAtLeast(0)) * limit
+    val page = params.pageNumber.coerceAtLeast(0)
+    val from = (page * limit).coerceAtMost(sorted.size)
+    val to = (from + limit).coerceAtMost(sorted.size)
+    val pageItems = if (from < to) sorted.subList(from, to) else emptyList()
 
-    dataSource().connection.use { conn ->
-      // Count
-      val countSql = "SELECT COUNT(*) FROM scheduled_tasks $where"
-      val total = conn.prepareStatement(countSql).use { ps ->
-        bind(ps, args)
-        ps.executeQuery().use { rs ->
-          rs.next()
-          rs.getLong(1)
-        }
-      }
+    val content = pageItems.map { it.toMap() }
+    val total = sorted.size.toLong()
+    val totalPages = if (total == 0L) 0 else ((total + limit - 1) / limit).toInt()
 
-      // Page
-      val pageSql = """
-        SELECT task_name, task_instance, execution_time, picked, picked_by,
-               last_success, last_failure, consecutive_failures, last_heartbeat, version
-        FROM scheduled_tasks
-        $where $sort LIMIT ? OFFSET ?
-      """.trimIndent()
-      val pageArgs = args + listOf(limit, offset)
-      val content = conn.prepareStatement(pageSql).use { ps ->
-        bind(ps, pageArgs)
-        ps.executeQuery().use { rs ->
-          val list = mutableListOf<Map<String, Any?>>()
-          while (rs.next()) {
-            list += mapRow(rs)
-          }
-          list
-        }
-      }
-
-      val totalPages = if (total == 0L) 0 else ((total + limit - 1) / limit).toInt()
-      return mapOf(
-        "content" to content,
-        "pageNumber" to params.pageNumber,
-        "size" to params.size,
-        "totalElements" to total,
-        "totalPages" to totalPages
-      )
-    }
+    return mapOf(
+      "content" to content,
+      "pageNumber" to params.pageNumber,
+      "size" to params.size,
+      "totalElements" to total,
+      "totalPages" to totalPages
+    )
   }
 
   fun getTask(params: TaskDetailsRequestParams): Any {
     val name = requireNotNull(params.taskName) { "taskName is required" }
     val id = requireNotNull(params.taskId) { "taskId is required" }
-    dataSource().connection.use { conn ->
-      val sql = """
-        SELECT task_name, task_instance, execution_time, picked, picked_by,
-               last_success, last_failure, consecutive_failures, last_heartbeat, version
-        FROM scheduled_tasks WHERE task_name = ? AND task_instance = ?
-      """.trimIndent()
-      val task = conn.prepareStatement(sql).use { ps ->
-        ps.setString(1, name)
-        ps.setString(2, id)
-        ps.executeQuery().use { rs -> if (rs.next()) mapRow(rs) else null }
+
+    var found: ScheduledExecution<*>? = null
+    scheduler().fetchScheduledExecutions(ScheduledExecutionsFilter.all()) {
+      if (it.taskInstance.taskName == name && it.taskInstance.id == id) {
+        found = it
       }
-      return mapOf(
-        "task" to (task ?: emptyMap<String, Any?>()),
-        "executions" to emptyList<Any>() // db-scheduler keeps single row per future execution
-      )
     }
+
+    return mapOf(
+      "task" to (found?.toMap() ?: emptyMap<String, Any?>()),
+      "executions" to emptyList<Any>()
+    )
   }
 
   fun pollTasks(params: TaskDetailsRequestParams): Any {
-    // Simple stub: always return not updated. Could be improved with last_heartbeat/execution_time windows.
+    // Minimal polling implementation: always not updated for now
     return mapOf(
       "updated" to false,
       "content" to emptyList<Any>()
@@ -94,120 +105,49 @@ internal class TaskService(
   }
 
   fun runTaskNow(id: String, name: String, scheduleTime: Instant): Any {
-    val rows = dataSource().connection.use { conn ->
-      val sql = """
-        UPDATE scheduled_tasks
-        SET execution_time = ?, picked = FALSE, version = version + 1
-        WHERE task_name = ? AND task_instance = ?
-      """.trimIndent()
-      conn.prepareStatement(sql).use { ps ->
-        ps.setObject(1, scheduleTime)
-        ps.setString(2, name)
-        ps.setString(3, id)
-        ps.executeUpdate()
-      }
+    val instance = TaskInstanceId.of(name, id)
+    return try {
+      scheduler().reschedule(instance, scheduleTime)
+      mapOf("status" to "accepted", "id" to id, "name" to name, "scheduleTime" to scheduleTime.toString())
+    } catch (_: Exception) {
+      mapOf("status" to "not_found", "id" to id, "name" to name, "scheduleTime" to scheduleTime.toString())
     }
-    return mapOf("status" to if (rows > 0) "accepted" else "not_found", "id" to id, "name" to name, "scheduleTime" to scheduleTime.toString())
   }
 
   fun runTaskGroupNow(groupName: String, onlyFailed: Boolean): Any {
-    val rows = dataSource().connection.use { conn ->
-      val sql = buildString {
-        append("UPDATE scheduled_tasks SET execution_time = NOW(), picked = FALSE, version = version + 1 WHERE task_name = ?")
-        if (onlyFailed) append(" AND consecutive_failures IS NOT NULL AND consecutive_failures > 0")
-      }
-      conn.prepareStatement(sql).use { ps ->
-        ps.setString(1, groupName)
-        ps.executeUpdate()
+    val now = Instant.now()
+    var updated = 0
+    scheduler().fetchScheduledExecutions(ScheduledExecutionsFilter.all()) { e ->
+      if (e.taskInstance.taskName == groupName && (!onlyFailed || (e.consecutiveFailures ?: 0) > 0)) {
+        try {
+          scheduler().reschedule(e.taskInstance, now)
+          updated++
+        } catch (_: Exception) {
+          // ignore failures for individual instances
+        }
       }
     }
-    return mapOf("status" to if (rows > 0) "accepted" else "not_found", "updated" to rows)
+    return mapOf("status" to if (updated > 0) "accepted" else "not_found", "updated" to updated)
   }
 
   fun deleteTask(id: String, name: String): Any {
-    val rows = dataSource().connection.use { conn ->
-      val sql = "DELETE FROM scheduled_tasks WHERE task_name = ? AND task_instance = ?"
-      conn.prepareStatement(sql).use { ps ->
-        ps.setString(1, name)
-        ps.setString(2, id)
-        ps.executeUpdate()
-      }
+    val instance = TaskInstanceId.of(name, id)
+    return try {
+      scheduler().cancel(instance)
+      mapOf("status" to "deleted", "id" to id, "name" to name)
+    } catch (_: Exception) {
+      mapOf("status" to "not_found", "id" to id, "name" to name)
     }
-    return mapOf("status" to if (rows > 0) "deleted" else "not_found", "id" to id, "name" to name)
   }
 
-  private fun mapRow(rs: ResultSet): Map<String, Any?> = mapOf(
-    "taskName" to rs.getString("task_name"),
-    "taskInstance" to rs.getString("task_instance"),
-    "executionTime" to rs.getTimestamp("execution_time")?.toInstant()?.toString(),
-    "picked" to rs.getBoolean("picked"),
-    "pickedBy" to rs.getString("picked_by"),
-    "lastSuccess" to rs.getTimestamp("last_success")?.toInstant()?.toString(),
-    "lastFailure" to rs.getTimestamp("last_failure")?.toInstant()?.toString(),
-    "consecutiveFailures" to (rs.getObject("consecutive_failures") as? Number)?.toInt(),
-    "lastHeartbeat" to rs.getTimestamp("last_heartbeat")?.toInstant()?.toString(),
-    "version" to (rs.getObject("version") as? Number)?.toLong()
+  private fun ScheduledExecution<*>.toMap(): Map<String, Any?> = mapOf(
+    "taskName" to taskInstance.taskName,
+    "taskInstance" to taskInstance.id,
+    "executionTime" to executionTime.toString(),
+    "picked" to isPicked,
+    "pickedBy" to pickedBy,
+    "lastSuccess" to lastSuccess?.toString(),
+    "lastFailure" to lastFailure?.toString(),
+    "consecutiveFailures" to consecutiveFailures
   )
-
-  private fun buildWhereClause(params: TaskRequestParams): Pair<String, List<Any?>> {
-    val conditions = mutableListOf<String>()
-    val args = mutableListOf<Any?>()
-
-    // Filters
-    when (params.filter) {
-      TaskRequestParams.TaskFilter.SCHEDULED -> conditions += "picked = FALSE"
-      TaskRequestParams.TaskFilter.RUNNING -> conditions += "picked = TRUE"
-      TaskRequestParams.TaskFilter.FAILED -> conditions += "consecutive_failures IS NOT NULL AND consecutive_failures > 0"
-      TaskRequestParams.TaskFilter.COMPLETED -> conditions += "last_success IS NOT NULL"
-      else -> {}
-    }
-
-    // Search
-    params.searchTermTaskName?.takeIf { it.isNotBlank() }?.let {
-      if (params.isTaskNameExactMatch) {
-        conditions += "task_name = ?"; args += it
-      } else {
-        conditions += "task_name ILIKE ?"; args += "%$it%"
-      }
-    }
-    params.searchTermTaskInstance?.takeIf { it.isNotBlank() }?.let {
-      if (params.isTaskInstanceExactMatch) {
-        conditions += "task_instance = ?"; args += it
-      } else {
-        conditions += "task_instance ILIKE ?"; args += "%$it%"
-      }
-    }
-
-    // Time window
-    params.startTime?.let { conditions += "execution_time >= ?"; args += it }
-    params.endTime?.let { conditions += "execution_time <= ?"; args += it }
-
-    val where = if (conditions.isEmpty()) "" else ("WHERE " + conditions.joinToString(" AND "))
-    return where to args
-  }
-
-  private fun buildSortClause(params: TaskRequestParams): String {
-    val column = when (params.sorting) {
-      TaskRequestParams.TaskSort.TASK_NAME -> "task_name"
-      TaskRequestParams.TaskSort.TASK_INSTANCE -> "task_instance"
-      TaskRequestParams.TaskSort.START_TIME -> "execution_time"
-      TaskRequestParams.TaskSort.END_TIME -> "last_success"
-      else -> "execution_time"
-    }
-    val dir = if (params.isAsc) "ASC" else "DESC"
-    return "ORDER BY $column $dir"
-  }
-
-  private fun bind(ps: java.sql.PreparedStatement, args: List<Any?>) {
-    var i = 1
-    for (a in args) {
-      when (a) {
-        is Instant -> ps.setObject(i, a)
-        is Number -> ps.setObject(i, a)
-        is Boolean -> ps.setBoolean(i, a)
-        else -> ps.setObject(i, a)
-      }
-      i++
-    }
-  }
 }
