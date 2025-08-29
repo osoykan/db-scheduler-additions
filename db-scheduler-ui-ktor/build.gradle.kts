@@ -21,6 +21,10 @@ tasks.register<com.github.gradle.node.npm.task.NpmTask>("npmBuild") {
   outputs.dir(distPath)
 }
 
+repositories {
+  mavenCentral()
+}
+
 dependencies {
   implementation(libs.ktor.server.core)
   implementation(libs.dbScheduler)
