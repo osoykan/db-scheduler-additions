@@ -23,7 +23,7 @@ internal fun Routing.configureRouting(
     config(config)
 
     if (config.enabled) {
-      val taskService = TaskService(schedulerProvider, caching, config.taskData)
+      val taskService = TaskService(schedulerProvider, dataSourceProvider, caching, config.taskData)
       tasks(taskService)
 
       if (config.logs.history) {
