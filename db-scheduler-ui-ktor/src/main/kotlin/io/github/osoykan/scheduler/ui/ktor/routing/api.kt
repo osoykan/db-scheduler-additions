@@ -1,9 +1,10 @@
 package io.github.osoykan.scheduler.ui.ktor.routing
 
+import io.github.osoykan.scheduler.ui.backend.service.LogService
+import io.github.osoykan.scheduler.ui.backend.service.TaskService
+import io.github.osoykan.scheduler.ui.backend.util.Caching
 import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUIConfiguration
 import io.ktor.server.routing.*
-import no.bekk.dbscheduler.ui.service.*
-import no.bekk.dbscheduler.ui.util.Caching
 
 internal fun Routing.configureRouting(
   config: DbSchedulerUIConfiguration
@@ -14,20 +15,20 @@ internal fun Routing.configureRouting(
    * https://github.com/bekk/db-scheduler-ui
    */
   val api = "db-scheduler-api"
-  val caching = Caching()
-  val dataSource = config.dataSource()
-  val scheduler = config.scheduler()
+  val caching = Caching<String, Any>()
+  val dataSourceProvider = config.dataSource
+  val schedulerProvider = config.scheduler
 
   route(api) {
     config(config)
 
     if (config.enabled) {
-      val taskLogic = TaskLogic(scheduler, caching, config.taskData)
-      tasks(taskLogic)
+      val taskService = TaskService(schedulerProvider, caching, config.taskData)
+      tasks(taskService)
 
       if (config.logs.history) {
-        val logLogic = LogLogic(dataSource, config.serializer, caching, config.taskData, config.logs.logTableName, config.logs.logLimit)
-        history(logLogic)
+        val logService = LogService(dataSourceProvider, caching, config.taskData, config.logs.logTableName, config.logs.logLimit)
+        history(logService)
       }
     }
   }
