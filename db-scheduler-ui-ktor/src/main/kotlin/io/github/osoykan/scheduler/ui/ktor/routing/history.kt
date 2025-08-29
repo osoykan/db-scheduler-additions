@@ -1,11 +1,10 @@
 package io.github.osoykan.scheduler.ui.ktor.routing
 
-import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams as OurTaskDetailsRequestParams
+import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
+import io.github.osoykan.scheduler.ui.backend.service.LogService
 import io.github.osoykan.scheduler.ui.ktor.receiveParametersTyped
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import no.bekk.dbscheduler.ui.model.TaskDetailsRequestParams
-import no.bekk.dbscheduler.ui.model.TaskRequestParams
-import no.bekk.dbscheduler.ui.service.LogLogic
 
 /**
  * Configuration for logs, requires history to be enabled
@@ -14,33 +13,15 @@ import no.bekk.dbscheduler.ui.service.LogLogic
  * Documentation: `https://github.com/rocketbase-io/db-scheduler-log`
  */
 internal fun Route.history(
-  logLogic: LogLogic
+  logLogic: LogService
 ) {
   get("logs") {
-    val req = call.receiveParametersTyped<OurTaskDetailsRequestParams>()
-    logLogic.getLogs(req.toBekk())
+    val req = call.receiveParametersTyped<TaskDetailsRequestParams>()
+    call.respond(logLogic.getLogs(req))
   }
 
   get("poll") {
-    val req = call.receiveParametersTyped<OurTaskDetailsRequestParams>()
-    logLogic.pollLogs(req.toBekk())
+    val req = call.receiveParametersTyped<TaskDetailsRequestParams>()
+    call.respond(logLogic.pollLogs(req))
   }
 }
-
-private fun OurTaskDetailsRequestParams.toBekk(): TaskDetailsRequestParams =
-  TaskDetailsRequestParams(
-    TaskRequestParams.TaskFilter.valueOf(filter.name),
-    pageNumber,
-    size,
-    TaskRequestParams.TaskSort.valueOf(sorting.name),
-    isAsc,
-    searchTermTaskName,
-    searchTermTaskInstance,
-    isTaskNameExactMatch,
-    isTaskInstanceExactMatch,
-    startTime,
-    endTime,
-    taskName,
-    taskId,
-    isRefresh
-  )
