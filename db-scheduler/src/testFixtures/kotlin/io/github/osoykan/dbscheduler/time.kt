@@ -25,7 +25,16 @@ class ControllableTestClock(
     logger.debug("Advanced clock by {} to {}", duration, newTime)
 
     // Notify all listeners (schedulers) that time has changed
-    listeners.forEach { it() }
+    // Use synchronized block to ensure all listeners are notified atomically
+    synchronized(listeners) {
+      listeners.forEach { 
+        try {
+          it() 
+        } catch (e: Exception) {
+          logger.warn("Error notifying time change listener", e)
+        }
+      }
+    }
 
     return newTime
   }
@@ -38,7 +47,15 @@ class ControllableTestClock(
     logger.debug("Set clock to {}", instant)
 
     // Notify all listeners (schedulers) that time has changed
-    listeners.forEach { it() }
+    synchronized(listeners) {
+      listeners.forEach { 
+        try {
+          it() 
+        } catch (e: Exception) {
+          logger.warn("Error notifying time change listener", e)
+        }
+      }
+    }
 
     return instant
   }
@@ -47,7 +64,9 @@ class ControllableTestClock(
    * Register a listener to be notified when time changes
    */
   fun addTimeChangeListener(listener: () -> Unit) {
-    listeners.add(listener)
+    synchronized(listeners) {
+      listeners.add(listener)
+    }
   }
 
   /**

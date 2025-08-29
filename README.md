@@ -22,39 +22,6 @@ install(DbSchedulerUI) {
 > [!WARNING]
 > Enabling `taskData` might cause a peak in memory usage. The issue was discussed at https://github.com/bekk/db-scheduler-ui/issues/121
 
-## Couchbase
-
-```kotlin
-implementation("io.github.osoykan:db-scheduler-couchbase:$version")
-```
-
-```kotlin
-scheduler {
-  val couchbase = Couchbase(cluster, "bucket-name", "collection-name")
-  couchbase.ensureCollectionExists()
-
-  database(couchbase)
-  knownTasks(*tasks.toTypedArray())
-  startupTasks(*startupTasks.toTypedArray())
-  name(name)
-  clock(clock)
-  shutdownMaxWait(1.seconds)
-  fixedThreadPoolSize(5)
-  corePoolSize(1)
-  heartbeatInterval(2.seconds)
-  executeDue(2.seconds)
-  deleteUnresolvedAfter(1.seconds)
-  logLevel(LogLevel.TRACE)
-  logStackTrace(true)
-  shutdownMaxWait(1.minutes)
-  numberOfMissedHeartbeatsBeforeDead(3)
-  listeners(emptyList())
-  meterRegistry(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
-}.also {
-  it.start()
-}
-```
-
 ## Mongo
 
 ```kotlin
@@ -87,5 +54,45 @@ scheduler {
   it.start()
 }
 ```
+
+<details>
+
+<summary>Couchbase(DEPRECATED)</summary>
+
+
+```kotlin
+implementation("io.github.osoykan:db-scheduler-couchbase:$version")
+```
+
+```kotlin
+scheduler {
+  val couchbase = Couchbase(cluster, "bucket-name", "collection-name")
+  couchbase.ensureCollectionExists()
+
+  database(couchbase)
+  knownTasks(*tasks.toTypedArray())
+  startupTasks(*startupTasks.toTypedArray())
+  name(name)
+  clock(clock)
+  shutdownMaxWait(1.seconds)
+  fixedThreadPoolSize(5)
+  corePoolSize(1)
+  heartbeatInterval(2.seconds)
+  executeDue(2.seconds)
+  deleteUnresolvedAfter(1.seconds)
+  logLevel(LogLevel.TRACE)
+  logStackTrace(true)
+  shutdownMaxWait(1.minutes)
+  numberOfMissedHeartbeatsBeforeDead(3)
+  listeners(emptyList())
+  meterRegistry(PrometheusMeterRegistry(PrometheusConfig.DEFAULT))
+}.also {
+  it.start()
+}
+```
+
+
+</details>
+
 
 

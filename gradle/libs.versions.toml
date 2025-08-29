@@ -1,7 +1,6 @@
 [versions]
-kotlin = "2.2.0"
+kotlin = "2.2.10"
 kotlinx = "1.10.2"
-couchbase-client-kotlin = "3.9.0"
 jackson = "2.19.2"
 arrow = "2.1.2"
 micrometer-prometheus = "1.15.3"
@@ -21,9 +20,6 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 
 # Arrow
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
-
-# Couchbase
-couchbase-client-kotlin = { module = "com.couchbase.client:kotlin-client", version.ref = "couchbase-client-kotlin" }
 
 # Jackson
 jackson-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
@@ -72,7 +68,6 @@ kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.13" 
 hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.7" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.3" }
-testcontainers-couchbase = { module = "org.testcontainers:couchbase", version = "1.21.3" }
 testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.3" }
 
 [plugins]

@@ -62,7 +62,6 @@ subprojects {
 val publishedProjects = listOf(
   projects.dbScheduler.name,
   projects.dbSchedulerMongo.name,
-  projects.dbSchedulerCouchbase.name,
   projects.dbSchedulerUiKtor.name,
 )
 

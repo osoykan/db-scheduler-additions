@@ -40,8 +40,16 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
   }
 
   override suspend fun afterSpec(spec: Spec) {
-    client.close()
-    mongoContainer.stop()
+    try {
+      client.close()
+    } catch (e: Exception) {
+      logger.warn("Error closing MongoDB client", e)
+    }
+    try {
+      mongoContainer.stop()
+    } catch (e: Exception) {
+      logger.warn("Error stopping MongoDB container", e)
+    }
   }
 
   override suspend fun caseDefinition(): CaseDefinition<Mongo> = CaseDefinition(mongo) { db, tasks, startupTasks, name, clock, options ->
@@ -56,8 +64,8 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
       deleteUnresolvedAfter(1.seconds)
       fixedThreadPoolSize(options.concurrency)
       corePoolSize(2)
-      heartbeatInterval(50.milliseconds) // Fast heartbeat for responsive testing
-      executeDue(10.milliseconds) // Even faster polling for responsive testing
+      heartbeatInterval(100.milliseconds) // Balanced heartbeat for stable testing
+      executeDue(50.milliseconds) // Balanced polling for responsive but stable testing
     }
   }
 }

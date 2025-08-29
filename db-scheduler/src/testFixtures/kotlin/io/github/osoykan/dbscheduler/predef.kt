@@ -7,10 +7,10 @@ import io.github.osoykan.scheduler.DocumentDatabase
 import org.slf4j.LoggerFactory
 
 data class OtherOptions(
-  val concurrency: Int = 5
+  val concurrency: Int = 10 // Increased default for better test performance
 )
 
-internal val logger = LoggerFactory.getLogger(SchedulerUseCases::class.java)
+val logger = LoggerFactory.getLogger(SchedulerUseCases::class.java)
 
 typealias SchedulerFactory<T> = (
   db: T,

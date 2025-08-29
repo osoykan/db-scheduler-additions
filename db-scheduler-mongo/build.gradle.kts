@@ -16,3 +16,8 @@ dependencies {
   testImplementation(libs.testcontainers.mongo)
   testImplementation(testFixtures(projects.dbScheduler))
 }
+
+tasks.test {
+  // Exclude abstract test classes from being run directly
+  exclude("**/SchedulerUseCases.class")
+}
