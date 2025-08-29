@@ -1,29 +1,31 @@
 package io.github.osoykan.scheduler.ui.ktor.routing
 
+import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams as OurTaskDetailsRequestParams
+import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams as OurTaskRequestParams
 import io.github.osoykan.scheduler.ui.ktor.receiveParametersTyped
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import no.bekk.dbscheduler.ui.model.*
+import no.bekk.dbscheduler.ui.model.TaskDetailsRequestParams
+import no.bekk.dbscheduler.ui.model.TaskRequestParams
 import no.bekk.dbscheduler.ui.service.TaskLogic
 import java.time.Instant
 
 internal fun Route.tasks(taskLogic: TaskLogic) {
   route("tasks") {
     get("all") {
-      val params = call.receiveParametersTyped<TaskRequestParams>()
-      call.respond(HttpStatusCode.OK, taskLogic.getAllTasks(params))
+      val params = call.receiveParametersTyped<OurTaskRequestParams>()
+      call.respond(HttpStatusCode.OK, taskLogic.getAllTasks(params.toBekk()))
     }
 
     get("details") {
-      val params = call.receiveParametersTyped<TaskDetailsRequestParams>()
-      call.respond(HttpStatusCode.OK, taskLogic.getTask(params))
+      val params = call.receiveParametersTyped<OurTaskDetailsRequestParams>()
+      call.respond(HttpStatusCode.OK, taskLogic.getTask(params.toBekk()))
     }
 
     get("poll") {
-      val params = call.receiveParametersTyped<TaskDetailsRequestParams>()
-      call.respond(HttpStatusCode.OK, taskLogic.pollTasks(params))
+      val params = call.receiveParametersTyped<OurTaskDetailsRequestParams>()
+      call.respond(HttpStatusCode.OK, taskLogic.pollTasks(params.toBekk()))
     }
 
     post("rerun") {
@@ -47,3 +49,37 @@ internal fun Route.tasks(taskLogic: TaskLogic) {
     }
   }
 }
+
+private fun OurTaskRequestParams.toBekk(): TaskRequestParams =
+  TaskRequestParams(
+    TaskRequestParams.TaskFilter.valueOf(filter.name),
+    pageNumber,
+    size,
+    TaskRequestParams.TaskSort.valueOf(sorting.name),
+    isAsc,
+    searchTermTaskName,
+    searchTermTaskInstance,
+    isTaskNameExactMatch,
+    isTaskInstanceExactMatch,
+    startTime,
+    endTime,
+    isRefresh
+  )
+
+private fun OurTaskDetailsRequestParams.toBekk(): TaskDetailsRequestParams =
+  TaskDetailsRequestParams(
+    TaskRequestParams.TaskFilter.valueOf(filter.name),
+    pageNumber,
+    size,
+    TaskRequestParams.TaskSort.valueOf(sorting.name),
+    isAsc,
+    searchTermTaskName,
+    searchTermTaskInstance,
+    isTaskNameExactMatch,
+    isTaskInstanceExactMatch,
+    startTime,
+    endTime,
+    taskName,
+    taskId,
+    isRefresh
+  )
