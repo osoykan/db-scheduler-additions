@@ -136,16 +136,133 @@ internal class TaskService(
   }
 
   fun pollTasks(params: TaskDetailsRequestParams): PollResponse {
-    // Return count-based changes for polling
+    val cacheKey = "poll_${params.hashCode()}"
+    
+    // Get current state
+    val currentTasks = getAllTasksInternal(params)
+    val currentTaskStates = currentTasks.associate { task ->
+      task.taskName to TaskState(
+        isRunning = task.picked,
+        hasFailed = task.lastFailure != null,
+        hasSucceeded = task.lastSuccess.any { it != null },
+        consecutiveFailures = task.consecutiveFailures.maxOrNull() ?: 0
+      )
+    }
+    
+    // Get previous state from cache (if it exists)
+    val pollState = caching.get(cacheKey) { 
+      PollState(
+        previousTasks = emptyMap(),
+        currentTasks = emptyMap()
+      )
+    } as PollState
+    
+    // Use the currentTasks from the cache as our previousTasks for comparison
+    val previousTaskStates = pollState.currentTasks
+    
+    // Calculate changes between previous and current  
+    val changes = calculateTaskChanges(previousTaskStates, currentTaskStates)
+    
+    // Update cache with new state (invalidate first to force refresh)
+    caching.invalidate(cacheKey)
+    caching.get(cacheKey) { 
+      PollState(
+        previousTasks = previousTaskStates, // This won't be used next time anyway
+        currentTasks = currentTaskStates    // This becomes previousTasks in next call
+      )
+    }
+    
+    return changes
+  }
+  
+  private fun getAllTasksInternal(params: TaskDetailsRequestParams): List<Task> {
+    // Convert TaskDetailsRequestParams to TaskRequestParams for reuse
+    val taskParams = TaskRequestParams(
+      filter = params.filter,
+      pageNumber = params.pageNumber,
+      size = params.size ?: 1000, // Use large default for polling
+      sorting = params.sorting,
+      isAsc = params.isAsc,
+      searchTermTaskName = params.searchTermTaskName,
+      searchTermTaskInstance = params.searchTermTaskInstance,
+      isTaskNameExactMatch = params.isTaskNameExactMatch,
+      isTaskInstanceExactMatch = params.isTaskInstanceExactMatch,
+      startTime = params.startTime,
+      endTime = params.endTime,
+      isRefresh = params.isRefresh
+    )
+    return getAllTasks(taskParams).items
+  }
+  
+  private fun calculateTaskChanges(previous: Map<String, TaskState>, current: Map<String, TaskState>): PollResponse {
+    var newFailures = 0
+    var newRunning = 0
+    var newTasks = 0
+    var newSucceeded = 0
+    var stoppedFailing = 0
+    var finishedRunning = 0
+    
+    // Check for changes in existing tasks
+    for ((taskName, currentState) in current) {
+      val previousState = previous[taskName]
+      
+      if (previousState == null) {
+        // New task
+        newTasks++
+        if (currentState.isRunning) newRunning++
+        if (currentState.hasFailed && currentState.consecutiveFailures > 0) newFailures++
+        if (currentState.hasSucceeded) newSucceeded++
+      } else {
+        // Existing task - check for state changes
+        
+        // New failures: task started failing OR increased consecutive failures
+        if (currentState.consecutiveFailures > previousState.consecutiveFailures) {
+          newFailures++
+        }
+        
+        // Stopped failing: had failures before, now has none
+        if (previousState.consecutiveFailures > 0 && currentState.consecutiveFailures == 0) {
+          stoppedFailing++
+        }
+        
+        // New running: wasn't running before, is running now
+        if (!previousState.isRunning && currentState.isRunning) {
+          newRunning++
+        }
+        
+        // Finished running: was running before, not running now
+        if (previousState.isRunning && !currentState.isRunning) {
+          finishedRunning++
+        }
+        
+        // New succeeded: wasn't succeeded before, is succeeded now
+        if (!previousState.hasSucceeded && currentState.hasSucceeded) {
+          newSucceeded++
+        }
+      }
+    }
+    
     return PollResponse(
-      newFailures = 0,
-      newRunning = 0,
-      newTasks = 0,
-      newSucceeded = 0,
-      stoppedFailing = 0,
-      finishedRunning = 0
+      newFailures = newFailures,
+      newRunning = newRunning,
+      newTasks = newTasks,
+      newSucceeded = newSucceeded,
+      stoppedFailing = stoppedFailing,
+      finishedRunning = finishedRunning
     )
   }
+  
+  private data class TaskState(
+    val isRunning: Boolean,
+    val hasFailed: Boolean,
+    val hasSucceeded: Boolean,
+    val consecutiveFailures: Int
+  )
+  
+  private data class PollState(
+    val previousTasks: Map<String, TaskState>,
+    val currentTasks: Map<String, TaskState>
+  )
 
   fun runTaskNow(id: String, name: String, scheduleTime: Instant): TaskActionResponse {
     val instance = TaskInstanceId.of(name, id)

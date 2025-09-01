@@ -15,7 +15,7 @@ internal fun Routing.configureRouting(
    * https://github.com/bekk/db-scheduler-ui
    */
   val api = "db-scheduler-api"
-  val caching = Caching<String, Any>()
+  val caching = Caching<String, Any>(ttl = java.time.Duration.ofSeconds(60)) // Longer TTL for polling state
   val dataSourceProvider = config.dataSource
   val schedulerProvider = config.scheduler
 
