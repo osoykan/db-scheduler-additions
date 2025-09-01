@@ -1,5 +1,5 @@
 group = "io.github.osoykan"
-version = "0.0.7"
+version = "0.1.0"
 
 plugins {
   kotlin("jvm") version libs.versions.kotlin
