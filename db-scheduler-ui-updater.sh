@@ -3,8 +3,8 @@
 # Configuration
 REPO_URL="https://github.com/bekk/db-scheduler-ui.git"
 BRANCH="main"
-SUBTREE_PREFIX="vendor/db-scheduler-ui"
-SOURCE_DIR="$SUBTREE_PREFIX/db-scheduler-ui-frontend"
+TEMP_DIR="temp-db-scheduler-ui"
+SOURCE_DIR="$TEMP_DIR/db-scheduler-ui-frontend"
 TARGET_DIR="db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui"
 SCRIPT_NAME=$(basename "$0")
 
@@ -32,39 +32,45 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if we're in a git repository
+# Check if we're in a git repository (optional for this simplified approach)
 check_git_repo() {
     if ! git rev-parse --git-dir > /dev/null 2>&1; then
-        log_error "Not in a git repository. Please run this script from your project root."
+        log_warning "Not in a git repository. Changes won't be staged automatically."
+        return 1
+    fi
+    return 0
+}
+
+# Check if git and required tools are available
+check_dependencies() {
+    if ! command -v git >/dev/null 2>&1; then
+        log_error "git is required but not installed."
         exit 1
     fi
 }
 
-# Check if subtree exists
-subtree_exists() {
-    [ -d "$SUBTREE_PREFIX" ]
-}
-
-# Initial subtree setup
-setup_subtree() {
-    log_info "Setting up subtree for the first time..."
-    if git subtree add --prefix="$SUBTREE_PREFIX" "$REPO_URL" "$BRANCH" --squash; then
-        log_success "Subtree added successfully"
-        return 0
-    else
-        log_error "Failed to add subtree"
-        return 1
+# Clean up temporary directory
+cleanup_temp() {
+    if [ -d "$TEMP_DIR" ]; then
+        log_info "Cleaning up temporary directory..."
+        rm -rf "$TEMP_DIR"
     fi
 }
 
-# Update existing subtree
-update_subtree() {
-    log_info "Updating existing subtree..."
-    if git subtree pull --prefix="$SUBTREE_PREFIX" "$REPO_URL" "$BRANCH" --squash; then
-        log_success "Subtree updated successfully"
+# Clone the repository to temporary directory
+clone_repo() {
+    log_info "Cloning db-scheduler-ui repository..."
+    
+    # Clean up any existing temp directory
+    cleanup_temp
+    
+    if git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$TEMP_DIR"; then
+        log_success "Repository cloned successfully"
+        # Remove .git directory to avoid git history
+        rm -rf "$TEMP_DIR/.git"
         return 0
     else
-        log_error "Failed to update subtree"
+        log_error "Failed to clone repository"
         return 1
     fi
 }
@@ -137,16 +143,20 @@ cleanup_files() {
     log_success "Cleanup completed"
 }
 
-# Stage changes for commit
+# Stage changes for commit (if in git repo)
 stage_changes() {
-    log_info "Staging changes..."
-
-    if git add "$TARGET_DIR"; then
-        log_success "Changes staged"
-        return 0
+    if check_git_repo; then
+        log_info "Staging changes..."
+        if git add "$TARGET_DIR"; then
+            log_success "Changes staged"
+            return 0
+        else
+            log_error "Failed to stage changes"
+            return 1
+        fi
     else
-        log_error "Failed to stage changes"
-        return 1
+        log_info "Not in git repository - skipping staging"
+        return 0
     fi
 }
 
@@ -179,32 +189,33 @@ main() {
     echo "========================================="
     echo
 
-    # Pre-flight checks
-    check_git_repo
+    # Set up cleanup trap
+    trap cleanup_temp EXIT
 
-    # Setup or update subtree
-    if subtree_exists; then
-        if ! update_subtree; then
-            exit 1
-        fi
-    else
-        if ! setup_subtree; then
-            exit 1
-        fi
+    # Pre-flight checks
+    check_dependencies
+    check_git_repo  # Just for warning, not required
+
+    # Clone repository to temporary directory
+    if ! clone_repo; then
+        exit 1
     fi
 
-    # Extract frontend
+    # Extract frontend files
     if ! extract_frontend; then
         exit 1
     fi
 
-    # Optional cleanup
+    # Optional cleanup of development files
     cleanup_files
 
-    # Stage changes
+    # Stage changes (if in git repo)
     if ! stage_changes; then
         exit 1
     fi
+
+    # Clean up temporary directory
+    cleanup_temp
 
     # Show summary
     show_summary
@@ -214,17 +225,23 @@ main() {
 show_help() {
     echo "Usage: $SCRIPT_NAME [OPTIONS]"
     echo
-    echo "Updates the db-scheduler-ui frontend components"
+    echo "Downloads and updates the db-scheduler-ui frontend components"
+    echo "Uses a simple clone approach - no git history or merge commits"
     echo
     echo "Options:"
     echo "  -h, --help     Show this help message"
-    echo "  --no-cleanup   Skip cleanup of development files"
     echo "  --dry-run      Show what would be done without making changes"
     echo
     echo "Configuration (edit script to modify):"
     echo "  Repository: $REPO_URL"
     echo "  Branch: $BRANCH"
     echo "  Target: $TARGET_DIR"
+    echo
+    echo "The script will:"
+    echo "  1. Clone the repository to a temporary directory"
+    echo "  2. Copy frontend files to the target location"
+    echo "  3. Remove .git directory and cleanup development files"
+    echo "  4. Stage changes (if in a git repository)"
 }
 
 # Parse command line arguments
@@ -235,8 +252,9 @@ case "${1:-}" in
         ;;
     --dry-run)
         log_info "DRY RUN MODE - No changes will be made"
+        log_info "Would clone: $REPO_URL ($BRANCH)"
         log_info "Would update: $TARGET_DIR"
-        log_info "From: $REPO_URL ($BRANCH)"
+        log_info "Would use temp directory: $TEMP_DIR"
         exit 0
         ;;
     *)

@@ -59,6 +59,5 @@ db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/node_modules/
 db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/dist/
 db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/package-lock.json
 
-# External UI submodule/vendor directory (if using db-scheduler-ui-updater.sh)
-vendor/db-scheduler-ui/
-vendor/
+# Temporary directory used by db-scheduler-ui-updater.sh
+temp-db-scheduler-ui/
