@@ -64,15 +64,23 @@ clone_repo() {
     # Clean up any existing temp directory
     cleanup_temp
     
-    if git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$TEMP_DIR"; then
-        log_success "Repository cloned successfully"
-        # Remove .git directory to avoid git history
-        rm -rf "$TEMP_DIR/.git"
-        return 0
+    # Try shallow clone first, fallback to full clone if it fails
+    if git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$TEMP_DIR" 2>/dev/null; then
+        log_success "Repository cloned successfully (shallow)"
+    elif git clone --branch "$BRANCH" "$REPO_URL" "$TEMP_DIR"; then
+        log_success "Repository cloned successfully (full)"
     else
         log_error "Failed to clone repository"
         return 1
     fi
+    
+    # Remove .git directory to avoid git history
+    if [ -d "$TEMP_DIR/.git" ]; then
+        rm -rf "$TEMP_DIR/.git"
+        log_info "Removed .git directory"
+    fi
+    
+    return 0
 }
 
 # Extract frontend directory
