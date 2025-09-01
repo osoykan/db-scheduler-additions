@@ -14,7 +14,6 @@ implementation("io.github.osoykan:db-scheduler-ui-ktor:$version")
 install(DbSchedulerUI) {
   routePath = "/db-scheduler"
   scheduler = { get<Scheduler>() } // assuming Koin is in place, but you can provide your instance to the functions.
-  dataSource = { get<DataSource>() }
   enabled = true
   taskData = true
 }
