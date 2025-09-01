@@ -1,5 +1,10 @@
 plugins {
   kotlin("jvm") version libs.versions.kotlin
+  application
+}
+
+application {
+  mainClass.set("MainKt")
 }
 
 dependencies {

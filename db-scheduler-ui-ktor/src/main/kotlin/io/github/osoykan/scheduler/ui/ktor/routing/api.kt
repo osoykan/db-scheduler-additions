@@ -27,7 +27,8 @@ internal fun Routing.configureRouting(
       tasks(taskService)
 
       if (config.logs.history) {
-        val logService = LogService(dataSourceProvider, caching, config.taskData, config.logs.logTableName, config.logs.logLimit)
+        val logService =
+          LogService(schedulerProvider, dataSourceProvider, caching, config.taskData, config.logs.logTableName, config.logs.logLimit)
         history(logService)
       }
     }

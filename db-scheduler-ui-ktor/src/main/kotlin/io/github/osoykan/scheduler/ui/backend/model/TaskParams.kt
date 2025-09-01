@@ -22,6 +22,7 @@ internal data class TaskRequestParams(
   val isRefresh: Boolean = true
 ) {
   enum class TaskFilter { ALL, SCHEDULED, FAILED, COMPLETED, RUNNING }
+
   enum class TaskSort { DEFAULT, TASK_NAME, TASK_INSTANCE, START_TIME, END_TIME }
 }
 
@@ -51,4 +52,68 @@ internal data class TaskDetailsRequestParams(
 internal data class ConfigResponse(
   val historyEnabled: Boolean,
   val configured: Boolean
+)
+
+/**
+ * Response DTOs matching the exact JSON schema expected by the db-scheduler-ui frontend
+ * Tasks are grouped by taskName, with arrays of instances/executions
+ */
+internal data class TasksResponse(
+  val items: List<Task>,
+  val numberOfItems: Int,
+  val numberOfPages: Int
+)
+
+internal data class Task(
+  val taskName: String,
+  val taskInstance: List<String>,
+  val taskData: List<Any?>,
+  val executionTime: List<String>,
+  val picked: Boolean,
+  val pickedBy: List<String?>,
+  val lastSuccess: List<String?>,
+  val lastFailure: String?,
+  val consecutiveFailures: List<Int>,
+  val lastHeartbeat: String?,
+  val version: Int
+)
+
+internal data class TaskActionResponse(
+  val status: String,
+  val id: String? = null,
+  val name: String? = null,
+  val scheduleTime: String? = null,
+  val updated: Int? = null
+)
+
+// Poll response shows counts of state changes
+internal data class PollResponse(
+  val newFailures: Int,
+  val newRunning: Int,
+  val newTasks: Int,
+  val newSucceeded: Int = 0,
+  val stoppedFailing: Int,
+  val finishedRunning: Int
+)
+
+// Log response uses the InfiniteScrollResponse pattern
+internal data class LogResponse(
+  val items: List<Log>,
+  val numberOfItems: Int,
+  val numberOfPages: Int
+)
+
+internal data class Log(
+  val id: Int,
+  val taskName: String,
+  val taskInstance: String,
+  val taskData: Any?,
+  val pickedBy: String?,
+  val timeStarted: String,
+  val timeFinished: String,
+  val succeeded: Boolean,
+  val durationMs: Long,
+  val exceptionClass: String?,
+  val exceptionMessage: String?,
+  val exceptionStackTrace: String?
 )

@@ -49,3 +49,15 @@ vendor
 node_modules
 dist
 package-lock.json
+
+### UI Build Artifacts ###
+# Generated UI assets (built from scheduler-ui source)
+db-scheduler-ui-ktor/src/main/resources/static/db-scheduler/
+
+# Node.js build artifacts in UI source directory
+db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/node_modules/
+db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/dist/
+db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/package-lock.json
+
+# External UI submodule/vendor directory (if using db-scheduler-ui-updater.sh)
+vendor/db-scheduler-ui/

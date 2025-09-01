@@ -12,7 +12,10 @@ import java.util.concurrent.atomic.AtomicReference
 class Caching<K : Any, V : Any>(
   private val ttl: Duration = Duration.ofSeconds(5)
 ) {
-  private data class Entry<V>(val value: V, val expiresAt: Instant)
+  private data class Entry<V>(
+    val value: V,
+    val expiresAt: Instant
+  )
 
   private val store = ConcurrentHashMap<K, AtomicReference<Entry<V>>>()
 

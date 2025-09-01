@@ -15,12 +15,12 @@ import io.ktor.server.routing.*
 internal fun Route.history(
   logLogic: LogService
 ) {
-  get("logs") {
+  get("logs/all") {
     val req = call.receiveParametersTyped<TaskDetailsRequestParams>()
     call.respond(logLogic.getLogs(req))
   }
 
-  get("poll") {
+  get("logs/poll") {
     val req = call.receiveParametersTyped<TaskDetailsRequestParams>()
     call.respond(logLogic.pollLogs(req))
   }
