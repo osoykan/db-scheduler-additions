@@ -61,3 +61,4 @@ db-scheduler-ui-ktor/src/main/resources/static/scheduler-ui/package-lock.json
 
 # External UI submodule/vendor directory (if using db-scheduler-ui-updater.sh)
 vendor/db-scheduler-ui/
+vendor/
