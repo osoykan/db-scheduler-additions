@@ -1,6 +1,5 @@
 package io.github.osoykan.scheduler.ui.ktor.routing
 
-import io.github.osoykan.scheduler.ui.backend.service.LogService
 import io.github.osoykan.scheduler.ui.backend.service.TaskService
 import io.github.osoykan.scheduler.ui.backend.util.Caching
 import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUIConfiguration
@@ -16,7 +15,6 @@ internal fun Routing.configureRouting(
    */
   val api = "db-scheduler-api"
   val caching = Caching<String, Any>(ttl = java.time.Duration.ofSeconds(60)) // Longer TTL for polling state
-  val dataSourceProvider = config.dataSource
   val schedulerProvider = config.scheduler
 
   route(api) {
@@ -25,12 +23,6 @@ internal fun Routing.configureRouting(
     if (config.enabled) {
       val taskService = TaskService(schedulerProvider, caching, config.taskData)
       tasks(taskService)
-
-      if (config.logs.history) {
-        val logService =
-          LogService(schedulerProvider, dataSourceProvider, caching, config.taskData, config.logs.logTableName, config.logs.logLimit)
-        history(logService)
-      }
     }
   }
 }

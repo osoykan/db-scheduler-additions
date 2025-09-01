@@ -6,7 +6,6 @@ import io.github.osoykan.scheduler.ui.ktor.routing.configureRouting
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
 import io.ktor.server.routing.*
-import javax.sql.DataSource
 
 val DbSchedulerUI = createApplicationPlugin("DbSchedulerUI", createConfiguration = ::DbSchedulerUIConfiguration) {
   val config = pluginConfig
@@ -31,10 +30,6 @@ data class DbSchedulerUIConfiguration(
    */
   var taskData: Boolean = true,
   /**
-   * DataSource for the scheduler
-   */
-  var dataSource: () -> DataSource = { error("DataSource not set") },
-  /**
    * Scheduler instance
    */
   var scheduler: () -> Scheduler = { error("Scheduler not set") },
@@ -45,18 +40,5 @@ data class DbSchedulerUIConfiguration(
   /**
    * Enable the UI, default is `false`
    */
-  var enabled: Boolean = false,
-  /**
-   * Configuration for logs, requires history to be enabled
-   * Will be opened later, still in development
-   *
-   * Documentation: `https://github.com/rocketbase-io/db-scheduler-log`
-   */
-  internal var logs: LogConfiguration = LogConfiguration()
-) {
-  data class LogConfiguration(
-    val history: Boolean = false,
-    val logTableName: String = "scheduled_execution_logs",
-    val logLimit: Int = 0
-  )
-}
+  var enabled: Boolean = false
+)

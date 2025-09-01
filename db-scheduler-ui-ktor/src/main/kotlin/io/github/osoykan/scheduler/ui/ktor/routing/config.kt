@@ -7,6 +7,6 @@ import io.ktor.server.routing.*
 
 internal fun Route.config(config: DbSchedulerUIConfiguration) {
   get("config") {
-    call.respond(ConfigResponse(config.logs.history, true))
+    call.respond(ConfigResponse(false, true)) // history disabled, polling enabled
   }
 }

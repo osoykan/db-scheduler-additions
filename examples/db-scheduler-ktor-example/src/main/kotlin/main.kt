@@ -99,7 +99,6 @@ fun main() {
     install(DbSchedulerUI) {
       routePath = "/db-scheduler"
       scheduler = { get() }
-      dataSource = { get() }
       enabled = true
     }
 
