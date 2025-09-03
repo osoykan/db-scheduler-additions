@@ -36,17 +36,7 @@ subprojects {
   kotlin {
     compilerOptions {
       jvmToolchain(17)
-      freeCompilerArgs = listOf(
-        "-Xjsr305=strict",
-        "-Xcontext-parameters",
-        "-Xnested-type-aliases",
-        "-Xwhen-guards",
-        "-Xsuppress-version-warnings",
-        "-Xwarning-level=IDENTITY_SENSITIVE_OPERATIONS_WITH_VALUE_TYPE:disabled",
-        "-opt-in=kotlin.RequiresOptIn",
-        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-        "-opt-in=kotlin.contracts.ExperimentalContracts"
-      )
+      freeCompilerArgs = listOf("-Xjsr305=strict")
       allWarningsAsErrors = true
     }
   }
