@@ -2,6 +2,8 @@
 
 This project aims to add support for additional databases and a Ktor UI plugin for the [Db Scheduler](https://github.com/kagkarlsson/db-scheduler) project. If you find any bug please report it.
 
+![Release](https://img.shields.io/maven-central/v/io.github.osoykan/db-scheduler?versionPrefix=0&label=latest-release&color=blue)
+
 ## UI Ktor Plugin
 
 This package uses [db-scheduler-ui](https://github.com/bekk/db-scheduler-ui) and provides a ktor plugin to interact with.
