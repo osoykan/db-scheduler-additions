@@ -26,7 +26,7 @@
     "@tanstack/react-query-devtools": "^4.33.0",
     "@types/node": "^20.5.0",
     "@types/react": "^18.2.15",
-    "@types/react-datepicker": "^4.15.0",
+    "@types/react-datepicker": "^7.0.0",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
