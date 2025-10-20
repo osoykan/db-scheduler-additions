@@ -27,7 +27,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.19" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.20" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -69,6 +69,6 @@ testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "8.0.0" }
-kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.2" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.3" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.34.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
