@@ -1,8 +1,8 @@
 [versions]
 kotlin = "2.2.10"
 kotlinx = "1.10.2"
-jackson = "2.20.0"
-arrow = "2.1.2"
+jackson = "2.20.1"
+arrow = "2.2.0"
 micrometer-prometheus = "1.15.5"
 dbscheduler = "16.4.1"
 slf4j = "2.0.17"
