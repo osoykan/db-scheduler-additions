@@ -18,7 +18,7 @@ internal fun Routing.configureRouting(
   val schedulerProvider = config.scheduler
 
   route(api) {
-    config(config)
+    config()
 
     if (config.enabled) {
       val taskService = TaskService(schedulerProvider, caching, config.taskData)

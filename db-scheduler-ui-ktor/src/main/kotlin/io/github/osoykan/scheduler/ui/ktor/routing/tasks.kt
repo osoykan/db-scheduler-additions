@@ -4,6 +4,7 @@ import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
 import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams
 import io.github.osoykan.scheduler.ui.backend.service.TaskService
 import io.github.osoykan.scheduler.ui.ktor.receiveParametersTyped
+import io.github.osoykan.scheduler.ui.ktor.toJson
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -13,17 +14,17 @@ internal fun Route.tasks(taskService: TaskService) {
   route("tasks") {
     get("all") {
       val params = call.receiveParametersTyped<TaskRequestParams>()
-      call.respond(HttpStatusCode.OK, taskService.getAllTasks(params))
+      call.respond(HttpStatusCode.OK, taskService.getAllTasks(params).toJson())
     }
 
     get("details") {
       val params = call.receiveParametersTyped<TaskDetailsRequestParams>()
-      call.respond(HttpStatusCode.OK, taskService.getTask(params))
+      call.respond(HttpStatusCode.OK, taskService.getTask(params).toJson())
     }
 
     get("poll") {
       val params = call.receiveParametersTyped<TaskDetailsRequestParams>()
-      call.respond(HttpStatusCode.OK, taskService.pollTasks(params))
+      call.respond(HttpStatusCode.OK, taskService.pollTasks(params).toJson())
     }
 
     post("rerun") {
@@ -31,19 +32,19 @@ internal fun Route.tasks(taskService: TaskService) {
       val name = requireNotNull(call.request.queryParameters["name"]) { "Task name is required" }
       val scheduleTime = requireNotNull(call.request.queryParameters["scheduleTime"]) { "Schedule time is required" }
       val scheduleTimeInstant = Instant.parse(scheduleTime)
-      call.respond(HttpStatusCode.OK, taskService.runTaskNow(id, name, scheduleTimeInstant))
+      call.respond(HttpStatusCode.OK, taskService.runTaskNow(id, name, scheduleTimeInstant).toJson())
     }
 
     post("rerunGroup") {
       val groupName = requireNotNull(call.request.queryParameters["name"]) { "Group name is required" }
       val onlyFailed = requireNotNull(call.request.queryParameters["onlyFailed"]) { "Only failed is required" }
-      call.respond(HttpStatusCode.OK, taskService.runTaskGroupNow(groupName, onlyFailed.toBoolean()))
+      call.respond(HttpStatusCode.OK, taskService.runTaskGroupNow(groupName, onlyFailed.toBoolean()).toJson())
     }
 
     post("delete") {
       val id = requireNotNull(call.request.queryParameters["id"]) { "Task id is required" }
       val name = requireNotNull(call.request.queryParameters["name"]) { "Task name is required" }
-      call.respond(HttpStatusCode.OK, taskService.deleteTask(id, name))
+      call.respond(HttpStatusCode.OK, taskService.deleteTask(id, name).toJson())
     }
   }
 }

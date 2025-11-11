@@ -1,4 +1,3 @@
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.kagkarlsson.scheduler.Scheduler
 import com.github.kagkarlsson.scheduler.jdbc.PostgreSqlJdbcCustomization
 import com.github.kagkarlsson.scheduler.task.Task
@@ -7,17 +6,16 @@ import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay
 import com.zaxxer.hikari.*
 import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUI
 import io.ktor.http.*
-import io.ktor.serialization.jackson.*
+import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import org.koin.core.KoinApplication
 import org.koin.core.qualifier.named
 import org.koin.dsl.*
-import org.koin.ktor.ext.*
+import org.koin.ktor.ext.get
 import org.koin.ktor.plugin.Koin
 import org.slf4j.LoggerFactory
 import java.time.*
@@ -76,7 +74,6 @@ fun main() {
       log = LoggerFactory.getLogger("DbSchedulerKtorExample")
     }
     install(Koin) {
-      registerJacksonSerialization()
       registerDbScheduler()
       modules(
         module {
@@ -230,14 +227,10 @@ private fun postgresql(): Pair<HikariConfig, HikariDataSource> {
   return Pair(hikariConfig, hikariDataSource)
 }
 
-fun KoinApplication.registerJacksonSerialization() {
-  modules(module { single { JacksonConfiguration.default } })
-}
-
 fun Application.configureContentNegotiation() {
-  val mapper: ObjectMapper by inject()
   install(ContentNegotiation) {
-    register(ContentType.Application.Json, JacksonConverter(mapper))
-    register(ContentType.Application.ProblemJson, JacksonConverter(mapper))
+    val format = kotlinx.serialization.json.Json {}
+    register(ContentType.Application.Json, KotlinxSerializationConverter(format))
+    register(ContentType.Application.ProblemJson, KotlinxSerializationConverter(format))
   }
 }
