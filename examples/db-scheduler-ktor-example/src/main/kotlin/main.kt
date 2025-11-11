@@ -20,9 +20,7 @@ import org.koin.dsl.*
 import org.koin.ktor.ext.*
 import org.koin.ktor.plugin.Koin
 import org.slf4j.LoggerFactory
-import org.testcontainers.containers.PostgreSQLContainer
-import java.time.Duration
-import java.time.Instant
+import java.time.*
 import javax.sql.DataSource
 
 fun main() {
@@ -207,7 +205,8 @@ fun main() {
 }
 
 private fun postgresql(): Pair<HikariConfig, HikariDataSource> {
-  val postgresql = PostgreSQLContainer("postgres:latest")
+  val postgresql = org.testcontainers.postgresql
+    .PostgreSQLContainer("postgres:latest")
     .apply { start() }
   val hikariConfig = HikariConfig().apply {
     jdbcUrl = postgresql.jdbcUrl

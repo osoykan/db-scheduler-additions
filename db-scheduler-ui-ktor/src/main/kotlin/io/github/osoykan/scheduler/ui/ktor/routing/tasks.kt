@@ -35,7 +35,7 @@ internal fun Route.tasks(taskService: TaskService) {
     }
 
     post("rerunGroup") {
-      val groupName = requireNotNull(call.request.queryParameters["groupName"]) { "Group name is required" }
+      val groupName = requireNotNull(call.request.queryParameters["name"]) { "Group name is required" }
       val onlyFailed = requireNotNull(call.request.queryParameters["onlyFailed"]) { "Only failed is required" }
       call.respond(HttpStatusCode.OK, taskService.runTaskGroupNow(groupName, onlyFailed.toBoolean()))
     }

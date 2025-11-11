@@ -63,8 +63,8 @@ datafaker = { module = "net.datafaker:datafaker", version = "2.5.3" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.13" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.8" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version = "1.21.3" }
-testcontainers-mongo = { module = "org.testcontainers:mongodb", version = "1.21.3" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.1" }
+testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.1" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }

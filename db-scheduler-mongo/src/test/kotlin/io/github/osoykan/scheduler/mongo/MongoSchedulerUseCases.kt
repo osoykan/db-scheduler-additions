@@ -5,7 +5,7 @@ import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.github.osoykan.dbscheduler.*
 import io.kotest.core.spec.Spec
 import org.bson.UuidRepresentation
-import org.testcontainers.containers.MongoDBContainer
+import org.testcontainers.mongodb.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
