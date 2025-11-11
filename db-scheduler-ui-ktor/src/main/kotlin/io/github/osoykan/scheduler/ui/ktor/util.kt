@@ -13,11 +13,26 @@ private val loader = object {}.javaClass.classLoader
  * Supports complex type serialization including custom objects.
  */
 internal sealed interface JsonVal {
-  data class Obj(val props: Map<String, JsonVal>) : JsonVal
-  data class Arr(val items: List<JsonVal>) : JsonVal
-  data class Str(val value: String) : JsonVal
-  data class Num(val value: Number) : JsonVal
-  data class Bool(val value: Boolean) : JsonVal
+  data class Obj(
+    val props: Map<String, JsonVal>
+  ) : JsonVal
+
+  data class Arr(
+    val items: List<JsonVal>
+  ) : JsonVal
+
+  data class Str(
+    val value: String
+  ) : JsonVal
+
+  data class Num(
+    val value: Number
+  ) : JsonVal
+
+  data class Bool(
+    val value: Boolean
+  ) : JsonVal
+
   data object Null : JsonVal
 }
 
@@ -94,14 +109,16 @@ private fun JsonVal.toJsonString(): String = when (this) {
   is JsonVal.Bool -> value.toString()
   is JsonVal.Obj -> buildString {
     append('{')
-    props.asSequence()
+    props
+      .asSequence()
       .map { (key, value) -> "\"${key.escapeJson()}\":${value.toJsonString()}" }
       .joinTo(this, separator = ",")
     append('}')
   }
   is JsonVal.Arr -> buildString {
     append('[')
-    items.asSequence()
+    items
+      .asSequence()
       .map { it.toJsonString() }
       .joinTo(this, separator = ",")
     append(']')
