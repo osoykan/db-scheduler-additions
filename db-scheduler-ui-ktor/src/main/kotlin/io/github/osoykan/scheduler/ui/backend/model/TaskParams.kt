@@ -4,7 +4,12 @@ import java.time.Instant
 
 /**
  * Internal DTOs mirroring the db-scheduler-ui request/response schema.
- * Kept simple to be compatible with different serialization engines used by host Ktor app.
+ * 
+ * REQUEST PARAMS (TaskRequestParams, TaskDetailsRequestParams): Still used for parsing incoming query parameters.
+ * 
+ * RESPONSE DTOs (TasksResponse, Task, ConfigResponse, etc.): DEPRECATED - now using Map<String, Any> instead.
+ * This avoids serialization configuration dependencies (no need for @Serializable annotations or Jackson modules).
+ * Users can work with any serialization library without additional setup.
  */
 
 internal data class TaskRequestParams(
@@ -47,73 +52,15 @@ internal data class TaskDetailsRequestParams(
 )
 
 /**
- * Minimal config payload used by the UI frontend at /db-scheduler-api/config
+ * API responses now use Map<String, Any> to avoid serialization configuration dependencies.
+ * This allows users to work with any serialization library (Jackson, kotlinx.serialization, etc.)
+ * without needing to configure annotations or modules.
+ * 
+ * Response schemas:
+ * - Config: mapOf("historyEnabled" to Boolean, "configured" to Boolean)
+ * - Tasks: mapOf("items" to List<Map<String,Any>>, "numberOfItems" to Int, "numberOfPages" to Int)
+ * - Task: mapOf("taskName" to String, "taskInstance" to List<String>, "taskData" to List<Any?>, ...)
+ * - TaskAction: mapOf("status" to String, "id" to String?, "name" to String?, "scheduleTime" to String?, "updated" to Int?)
+ * - Poll: mapOf("newFailures" to Int, "newRunning" to Int, "newTasks" to Int, "newSucceeded" to Int, "stoppedFailing" to Int, "finishedRunning" to Int)
+ * - Log: mapOf("items" to List<Map<String,Any>>, "numberOfItems" to Int, "numberOfPages" to Int)
  */
-internal data class ConfigResponse(
-  val historyEnabled: Boolean,
-  val configured: Boolean
-)
-
-/**
- * Response DTOs matching the exact JSON schema expected by the db-scheduler-ui frontend
- * Tasks are grouped by taskName, with arrays of instances/executions
- */
-internal data class TasksResponse(
-  val items: List<Task>,
-  val numberOfItems: Int,
-  val numberOfPages: Int
-)
-
-internal data class Task(
-  val taskName: String,
-  val taskInstance: List<String>,
-  val taskData: List<Any?>,
-  val executionTime: List<String>,
-  val picked: Boolean,
-  val pickedBy: List<String?>,
-  val lastSuccess: List<String?>,
-  val lastFailure: String?,
-  val consecutiveFailures: List<Int>,
-  val lastHeartbeat: String?,
-  val version: Int
-)
-
-internal data class TaskActionResponse(
-  val status: String,
-  val id: String? = null,
-  val name: String? = null,
-  val scheduleTime: String? = null,
-  val updated: Int? = null
-)
-
-// Poll response shows counts of state changes
-internal data class PollResponse(
-  val newFailures: Int,
-  val newRunning: Int,
-  val newTasks: Int,
-  val newSucceeded: Int = 0,
-  val stoppedFailing: Int,
-  val finishedRunning: Int
-)
-
-// Log response uses the InfiniteScrollResponse pattern
-internal data class LogResponse(
-  val items: List<Log>,
-  val numberOfItems: Int,
-  val numberOfPages: Int
-)
-
-internal data class Log(
-  val id: Int,
-  val taskName: String,
-  val taskInstance: String,
-  val taskData: Any?,
-  val pickedBy: String?,
-  val timeStarted: String,
-  val timeFinished: String,
-  val succeeded: Boolean,
-  val durationMs: Long,
-  val exceptionClass: String?,
-  val exceptionMessage: String?,
-  val exceptionStackTrace: String?
-)
