@@ -112,7 +112,7 @@ internal class TaskService(
     TaskRequestParams.TaskFilter.FAILED -> execution.consecutiveFailures > 0
     TaskRequestParams.TaskFilter.COMPLETED -> execution.lastSuccess != null
     TaskRequestParams.TaskFilter.ALL -> true
-      TaskRequestParams.TaskFilter.FAILED -> (execution.consecutiveFailures ?: 0) > 0
+  }
 
   private fun applyTaskNameFilter(execution: ScheduledExecution<*>, searchTerm: String?, exactMatch: Boolean): Boolean {
     val term = searchTerm?.takeIf { it.isNotBlank() } ?: return true
