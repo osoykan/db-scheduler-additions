@@ -406,7 +406,7 @@ class MongoTaskRepository(
   ).apply { metadata.forEach { (key, value) -> setMetadata(key, value) } }
 
   private fun toExecution(entity: MongoTaskEntity): Execution {
-    val task = taskResolver.resolve(entity.taskName)
+    val task = taskResolver.resolve(Resolvable.of(entity.taskName, entity.executionTime))
     // memoization?
     val dataSupplier = task.map { serializer.deserialize(it.dataClass, entity.taskData) }.orElse(null)
     val taskInstance = TaskInstance(entity.taskName, entity.taskInstance, dataSupplier)
