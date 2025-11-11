@@ -4,9 +4,9 @@ import java.time.Instant
 
 /**
  * Internal DTOs mirroring the db-scheduler-ui request/response schema.
- * 
+ *
  * REQUEST PARAMS (TaskRequestParams, TaskDetailsRequestParams): Still used for parsing incoming query parameters.
- * 
+ *
  * RESPONSE DTOs (TasksResponse, Task, ConfigResponse, etc.): DEPRECATED - now using Map<String, Any> instead.
  * This avoids serialization configuration dependencies (no need for @Serializable annotations or Jackson modules).
  * Users can work with any serialization library without additional setup.
@@ -55,7 +55,7 @@ internal data class TaskDetailsRequestParams(
  * API responses now use Map<String, Any> to avoid serialization configuration dependencies.
  * This allows users to work with any serialization library (Jackson, kotlinx.serialization, etc.)
  * without needing to configure annotations or modules.
- * 
+ *
  * Response schemas:
  * - Config: mapOf("historyEnabled" to Boolean, "configured" to Boolean)
  * - Tasks: mapOf("items" to List<Map<String,Any>>, "numberOfItems" to Int, "numberOfPages" to Int)

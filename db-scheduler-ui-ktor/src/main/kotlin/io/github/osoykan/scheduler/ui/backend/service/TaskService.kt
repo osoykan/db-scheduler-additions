@@ -30,7 +30,7 @@ internal class TaskService(
 
   fun getTask(params: TaskDetailsRequestParams): Map<String, Any> {
     val executions = fetchExecutionsBy(taskName = params.taskName, taskId = params.taskId)
-    
+
     if (executions.isEmpty()) {
       return buildEmptyTasksResponse()
     }
@@ -45,9 +45,9 @@ internal class TaskService(
     val currentStates = extractTaskStates(currentTasks)
     val previousStates = getPreviousStates(cacheKey)
     val changes = calculateTaskChanges(previousStates, currentStates)
-    
+
     updatePollCache(cacheKey, currentStates)
-    
+
     return changes
   }
 
@@ -98,24 +98,20 @@ internal class TaskService(
   private fun applyFilters(
     executions: List<ScheduledExecution<*>>,
     params: TaskRequestParams
-  ): List<ScheduledExecution<*>> {
-    return executions
-      .asSequence()
-      .filter { applyStatusFilter(it, params.filter) }
-      .filter { applyTaskNameFilter(it, params.searchTermTaskName, params.isTaskNameExactMatch) }
-      .filter { applyTaskInstanceFilter(it, params.searchTermTaskInstance, params.isTaskInstanceExactMatch) }
-      .filter { applyTimeRangeFilter(it, params.startTime, params.endTime) }
-      .toList()
-  }
+  ): List<ScheduledExecution<*>> = executions
+    .asSequence()
+    .filter { applyStatusFilter(it, params.filter) }
+    .filter { applyTaskNameFilter(it, params.searchTermTaskName, params.isTaskNameExactMatch) }
+    .filter { applyTaskInstanceFilter(it, params.searchTermTaskInstance, params.isTaskInstanceExactMatch) }
+    .filter { applyTimeRangeFilter(it, params.startTime, params.endTime) }
+    .toList()
 
-  private fun applyStatusFilter(execution: ScheduledExecution<*>, filter: TaskRequestParams.TaskFilter): Boolean {
-    return when (filter) {
-      TaskRequestParams.TaskFilter.SCHEDULED -> !execution.isPicked
-      TaskRequestParams.TaskFilter.RUNNING -> execution.isPicked
-      TaskRequestParams.TaskFilter.FAILED -> execution.consecutiveFailures > 0
-      TaskRequestParams.TaskFilter.COMPLETED -> execution.lastSuccess != null
-      TaskRequestParams.TaskFilter.ALL -> true
-    }
+  private fun applyStatusFilter(execution: ScheduledExecution<*>, filter: TaskRequestParams.TaskFilter): Boolean = when (filter) {
+    TaskRequestParams.TaskFilter.SCHEDULED -> !execution.isPicked
+    TaskRequestParams.TaskFilter.RUNNING -> execution.isPicked
+    TaskRequestParams.TaskFilter.FAILED -> execution.consecutiveFailures > 0
+    TaskRequestParams.TaskFilter.COMPLETED -> execution.lastSuccess != null
+    TaskRequestParams.TaskFilter.ALL -> true
   }
 
   private fun applyTaskNameFilter(execution: ScheduledExecution<*>, searchTerm: String?, exactMatch: Boolean): Boolean {
@@ -138,30 +134,30 @@ internal class TaskService(
 
   // ==================== Task Mapping ====================
 
-  private fun groupAndMapExecutions(executions: List<ScheduledExecution<*>>): List<Map<String, Any?>> {
-    return executions
-      .groupBy { it.taskInstance.taskName }
-      .map { (taskName, groupedExecutions) -> mapExecutionsToTask(taskName, groupedExecutions) }
-  }
+  private fun groupAndMapExecutions(executions: List<ScheduledExecution<*>>): List<Map<String, Any?>> = executions
+    .groupBy { it.taskInstance.taskName }
+    .map { (taskName, groupedExecutions) -> mapExecutionsToTask(taskName, groupedExecutions) }
 
-  private fun mapExecutionsToTask(taskName: String, executions: List<ScheduledExecution<*>>): Map<String, Any?> {
-    return mapOf(
-      "taskName" to taskName,
-      "taskInstance" to executions.map { it.taskInstance.id },
-      "taskData" to mapTaskData(executions),
-      "executionTime" to executions.map { it.executionTime.toString() },
-      "picked" to executions.any { it.isPicked },
-      "pickedBy" to executions.map { it.pickedBy },
-      "lastSuccess" to executions.map { it.lastSuccess?.toString() },
-      "lastFailure" to executions.mapNotNull { it.lastFailure }.maxByOrNull { it }?.toString(),
-      "consecutiveFailures" to executions.map { it.consecutiveFailures },
-      "lastHeartbeat" to null, // Not available in ScheduledExecution
-      "version" to 1 // Not available in ScheduledExecution, using default
-    )
-  }
+  private fun mapExecutionsToTask(taskName: String, executions: List<ScheduledExecution<*>>): Map<String, Any?> = mapOf(
+    "taskName" to taskName,
+    "taskInstance" to executions.map { it.taskInstance.id },
+    "taskData" to mapTaskData(executions),
+    "executionTime" to executions.map { it.executionTime.toString() },
+    "picked" to executions.any { it.isPicked },
+    "pickedBy" to executions.map { it.pickedBy },
+    "lastSuccess" to executions.map { it.lastSuccess?.toString() },
+    "lastFailure" to executions.mapNotNull { it.lastFailure }.maxByOrNull { it }?.toString(),
+    "consecutiveFailures" to executions.map { it.consecutiveFailures },
+    "lastHeartbeat" to null, // Not available in ScheduledExecution
+    "version" to 1 // Not available in ScheduledExecution, using default
+  )
 
-  private fun mapTaskData(executions: List<ScheduledExecution<*>>): List<Any?> {
-    return if (taskData) executions.map { it.data } else executions.map { null }
+  private fun mapTaskData(executions: List<ScheduledExecution<*>>): List<Any?> = if (taskData) {
+    executions.map {
+      it.data
+    }
+  } else {
+    executions.map { null }
   }
 
   // ==================== Sorting & Pagination ====================
@@ -207,15 +203,13 @@ internal class TaskService(
   }
 
   @Suppress("UNCHECKED_CAST")
-  private fun extractTaskStates(tasks: List<Map<String, Any>>): Map<String, TaskState> {
-    return tasks.associate { task ->
-      (task["taskName"] as String) to TaskState(
-        isRunning = task["picked"] as Boolean,
-        hasFailed = task["lastFailure"] != null,
-        hasSucceeded = (task["lastSuccess"] as List<*>).any { it != null },
-        consecutiveFailures = (task["consecutiveFailures"] as List<Int>).maxOrNull() ?: 0
-      )
-    }
+  private fun extractTaskStates(tasks: List<Map<String, Any>>): Map<String, TaskState> = tasks.associate { task ->
+    (task["taskName"] as String) to TaskState(
+      isRunning = task["picked"] as Boolean,
+      hasFailed = task["lastFailure"] != null,
+      hasSucceeded = (task["lastSuccess"] as List<*>).any { it != null },
+      consecutiveFailures = (task["consecutiveFailures"] as List<Int>).maxOrNull() ?: 0
+    )
   }
 
   private fun getPreviousStates(cacheKey: String): Map<String, TaskState> {
@@ -252,16 +246,14 @@ internal class TaskService(
 
   // ==================== Task Actions ====================
 
-  private fun executeTaskAction(instance: TaskInstanceId, action: () -> Map<String, Any?>): Map<String, Any?> {
-    return try {
-      action()
-    } catch (_: Exception) {
-      mapOf(
-        "status" to "not_found",
-        "id" to instance.id,
-        "name" to instance.taskName
-      )
-    }
+  private fun executeTaskAction(instance: TaskInstanceId, action: () -> Map<String, Any?>): Map<String, Any?> = try {
+    action()
+  } catch (_: Exception) {
+    mapOf(
+      "status" to "not_found",
+      "id" to instance.id,
+      "name" to instance.taskName
+    )
   }
 
   private fun rescheduleTaskGroup(groupName: String, onlyFailed: Boolean, scheduleTime: Instant): Int {
@@ -288,42 +280,34 @@ internal class TaskService(
     items: List<Map<String, Any?>>,
     totalItems: Int = items.size,
     totalPages: Int = 1
-  ): Map<String, Any> {
-    return mapOf(
-      "items" to items,
-      "numberOfItems" to totalItems,
-      "numberOfPages" to totalPages
-    )
-  }
+  ): Map<String, Any> = mapOf(
+    "items" to items,
+    "numberOfItems" to totalItems,
+    "numberOfPages" to totalPages
+  )
 
-  private fun buildEmptyTasksResponse(): Map<String, Any> {
-    return mapOf(
-      "items" to emptyList<Map<String, Any?>>(),
-      "numberOfItems" to 0,
-      "numberOfPages" to 0
-    )
-  }
+  private fun buildEmptyTasksResponse(): Map<String, Any> = mapOf(
+    "items" to emptyList<Map<String, Any?>>(),
+    "numberOfItems" to 0,
+    "numberOfPages" to 0
+  )
 
   private fun buildTaskActionResponse(
     status: String,
     id: String,
     name: String,
     scheduleTime: Instant? = null
-  ): Map<String, Any?> {
-    return mapOf(
-      "status" to status,
-      "id" to id,
-      "name" to name,
-      "scheduleTime" to scheduleTime?.toString()
-    )
-  }
+  ): Map<String, Any?> = mapOf(
+    "status" to status,
+    "id" to id,
+    "name" to name,
+    "scheduleTime" to scheduleTime?.toString()
+  )
 
-  private fun buildGroupActionResponse(updated: Int): Map<String, Any?> {
-    return mapOf(
-      "status" to if (updated > 0) "accepted" else "not_found",
-      "updated" to updated
-    )
-  }
+  private fun buildGroupActionResponse(updated: Int): Map<String, Any?> = mapOf(
+    "status" to if (updated > 0) "accepted" else "not_found",
+    "updated" to updated
+  )
 
   // ==================== Internal Models ====================
 
@@ -381,15 +365,13 @@ internal class TaskService(
       }
     }
 
-    fun toMap(): Map<String, Any> {
-      return mapOf(
-        "newFailures" to newFailures,
-        "newRunning" to newRunning,
-        "newTasks" to newTasks,
-        "newSucceeded" to newSucceeded,
-        "stoppedFailing" to stoppedFailing,
-        "finishedRunning" to finishedRunning
-      )
-    }
+    fun toMap(): Map<String, Any> = mapOf(
+      "newFailures" to newFailures,
+      "newRunning" to newRunning,
+      "newTasks" to newTasks,
+      "newSucceeded" to newSucceeded,
+      "stoppedFailing" to stoppedFailing,
+      "finishedRunning" to finishedRunning
+    )
   }
 }

@@ -205,7 +205,8 @@ fun main() {
 }
 
 private fun postgresql(): Pair<HikariConfig, HikariDataSource> {
-  val postgresql = org.testcontainers.postgresql.PostgreSQLContainer("postgres:latest")
+  val postgresql = org.testcontainers.postgresql
+    .PostgreSQLContainer("postgres:latest")
     .apply { start() }
   val hikariConfig = HikariConfig().apply {
     jdbcUrl = postgresql.jdbcUrl
