@@ -27,7 +27,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.20" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.21" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -64,12 +64,12 @@ datafaker = { module = "net.datafaker:datafaker", version = "2.5.3" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.13" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.8" }
-testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.1" }
-testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.1" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.2" }
+testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.2" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "8.0.0" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.3" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.34.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.35.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
