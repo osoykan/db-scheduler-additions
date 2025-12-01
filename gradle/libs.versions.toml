@@ -11,7 +11,7 @@ koin = "4.1.1"
 mongodb = "5.6.1"
 
 ## test
-kotest = "6.0.5"
+kotest = "6.0.7"
 
 [libraries]
 # Kotlin
