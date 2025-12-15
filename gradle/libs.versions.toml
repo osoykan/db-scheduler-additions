@@ -3,12 +3,12 @@ kotlin = "2.2.10"
 kotlinx = "1.10.2"
 jackson = "2.20.1"
 arrow = "2.2.0"
-micrometer-prometheus = "1.16.0"
+micrometer-prometheus = "1.16.1"
 dbscheduler = "16.6.0"
 slf4j = "2.0.17"
 ktor = "3.3.3"
 koin = "4.1.1"
-mongodb = "5.6.1"
+mongodb = "5.6.2"
 
 ## test
 kotest = "6.0.7"
@@ -27,7 +27,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.21" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.22" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -70,6 +70,6 @@ testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", v
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "8.1.0" }
-kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.3" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.4" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.35.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
