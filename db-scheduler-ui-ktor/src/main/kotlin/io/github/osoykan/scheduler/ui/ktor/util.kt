@@ -1,5 +1,6 @@
 package io.github.osoykan.scheduler.ui.ktor
 
+import io.github.osoykan.scheduler.ui.backend.model.LogRequestParams
 import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
 import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams
 import io.ktor.server.application.*
@@ -155,6 +156,7 @@ internal inline fun <reified T> ApplicationCall.receiveParametersTyped(): T {
   return when (T::class) {
     TaskRequestParams::class -> toTaskRequestParams(map) as T
     TaskDetailsRequestParams::class -> toTaskDetailsRequestParams(map) as T
+    LogRequestParams::class -> toLogRequestParams(map) as T
     else -> throw IllegalArgumentException("Unsupported type")
   }
 }
@@ -207,5 +209,50 @@ internal fun toTaskRequestParams(map: Map<String, String>): TaskRequestParams {
     startTime,
     endTime,
     refresh
+  )
+}
+
+internal fun toLogRequestParams(map: Map<String, String>): LogRequestParams {
+  val filter = map["filter"]?.let {
+    try {
+      LogRequestParams.LogFilter.valueOf(it)
+    } catch (_: Exception) {
+      LogRequestParams.LogFilter.ALL
+    }
+  } ?: LogRequestParams.LogFilter.ALL
+  val pageNumber = map["pageNumber"]?.toIntOrNull() ?: 0
+  val size = map["size"]?.toIntOrNull() ?: 10
+  val sorting = map["sorting"]?.let {
+    try {
+      LogRequestParams.LogSort.valueOf(it)
+    } catch (_: Exception) {
+      LogRequestParams.LogSort.DEFAULT
+    }
+  } ?: LogRequestParams.LogSort.DEFAULT
+  val asc = map["asc"]?.toBooleanStrictOrNull() ?: false
+  val searchTermTaskName = map["searchTermTaskName"]
+  val searchTermTaskInstance = map["searchTermTaskInstance"]
+  val taskNameExactMatch = map["taskNameExactMatch"]?.toBooleanStrictOrNull() ?: false
+  val taskInstanceExactMatch = map["taskInstanceExactMatch"]?.toBooleanStrictOrNull() ?: false
+  val startTime = map["startTime"]?.let { runCatching { Instant.parse(it) }.getOrNull() }
+  val endTime = map["endTime"]?.let { runCatching { Instant.parse(it) }.getOrNull() }
+  val taskName = map["taskName"]
+  val taskId = map["taskId"]
+  val refresh = map["refresh"]?.toBooleanStrictOrNull() ?: true
+  return LogRequestParams(
+    filter = filter,
+    pageNumber = pageNumber,
+    size = size,
+    sorting = sorting,
+    isAsc = asc,
+    searchTermTaskName = searchTermTaskName,
+    searchTermTaskInstance = searchTermTaskInstance,
+    isTaskNameExactMatch = taskNameExactMatch,
+    isTaskInstanceExactMatch = taskInstanceExactMatch,
+    startTime = startTime,
+    endTime = endTime,
+    taskName = taskName,
+    taskId = taskId,
+    isRefresh = refresh
   )
 }
