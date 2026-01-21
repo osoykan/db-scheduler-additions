@@ -42,6 +42,7 @@ private fun dbScheduler(
     .failureLogging(LogLevel.WARN, true)
     .threads(10)
     .registerShutdownHook()
+    .addSchedulerListener(historyListener)
     .build()
 }
 

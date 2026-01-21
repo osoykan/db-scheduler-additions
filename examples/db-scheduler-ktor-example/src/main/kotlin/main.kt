@@ -5,6 +5,7 @@ import com.github.kagkarlsson.scheduler.task.helper.*
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay
 import com.zaxxer.hikari.*
 import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUI
+import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUIConfiguration
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
@@ -20,6 +21,16 @@ import org.koin.ktor.plugin.Koin
 import org.slf4j.LoggerFactory
 import java.time.*
 import javax.sql.DataSource
+
+// global ui config
+val dbSchedulerUIConfig = DbSchedulerUIConfiguration().apply {
+  routePath = "/db-scheduler"
+  enabled = true
+  historyEnabled = true
+  historyMaxSize = 10000
+}
+
+val historyListener = dbSchedulerUIConfig.createHistoryListener()
 
 fun main() {
   val (hikariConfig, hikariDataSource) = postgresql()
@@ -92,9 +103,10 @@ fun main() {
     configureContentNegotiation()
     configureDbScheduler()
     install(DbSchedulerUI) {
-      routePath = "/db-scheduler"
+      routePath = dbSchedulerUIConfig.routePath
       scheduler = { get() }
-      enabled = true
+      enabled = dbSchedulerUIConfig.enabled
+      useHistoryListenerFrom(dbSchedulerUIConfig)
     }
 
     monitor.subscribe(ApplicationStarted) {

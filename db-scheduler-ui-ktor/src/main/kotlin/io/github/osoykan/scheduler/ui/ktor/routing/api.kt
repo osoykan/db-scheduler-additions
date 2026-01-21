@@ -1,6 +1,6 @@
 package io.github.osoykan.scheduler.ui.ktor.routing
 
-import io.github.osoykan.scheduler.ui.backend.service.TaskService
+import io.github.osoykan.scheduler.ui.backend.service.*
 import io.github.osoykan.scheduler.ui.backend.util.Caching
 import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUIConfiguration
 import io.ktor.server.routing.*
@@ -18,11 +18,16 @@ internal fun Routing.configureRouting(
   val schedulerProvider = config.scheduler
 
   route(api) {
-    config()
+    config(config.historyEnabled)
 
     if (config.enabled) {
       val taskService = TaskService(schedulerProvider, caching, config.taskData)
       tasks(taskService)
+
+      if (config.historyEnabled) {
+        val logService = LogService(config.logRepository, caching)
+        logs(logService)
+      }
     }
   }
 }
