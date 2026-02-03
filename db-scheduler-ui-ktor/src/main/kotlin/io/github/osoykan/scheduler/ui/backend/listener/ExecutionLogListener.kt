@@ -2,6 +2,7 @@ package io.github.osoykan.scheduler.ui.backend.listener
 
 import com.github.kagkarlsson.scheduler.event.AbstractSchedulerListener
 import com.github.kagkarlsson.scheduler.task.ExecutionComplete
+import io.github.osoykan.scheduler.ui.backend.model.ExecutionLog
 import io.github.osoykan.scheduler.ui.backend.repository.LogRepository
 import java.time.Instant
 
@@ -12,7 +13,7 @@ import java.time.Instant
  */
 class ExecutionLogListener(
   private val logRepository: LogRepository,
-  private val captureTaskData: Boolean = true
+  private val captureTaskData: Boolean
 ) : AbstractSchedulerListener() {
   override fun onExecutionComplete(executionComplete: ExecutionComplete) {
     val execution = executionComplete.execution
@@ -26,7 +27,7 @@ class ExecutionLogListener(
     val succeeded = result == ExecutionComplete.Result.OK
     val exception = executionComplete.cause.orElse(null)
 
-    logRepository.add(
+    val executionLog = ExecutionLog(
       taskName = taskInstance.taskName,
       taskInstance = taskInstance.id,
       taskData = if (captureTaskData) taskInstance.data else null,
@@ -34,7 +35,12 @@ class ExecutionLogListener(
       timeStarted = timeStarted,
       timeFinished = timeFinished,
       succeeded = succeeded,
-      exception = exception
+      durationMs = duration.toMillis(),
+      exceptionClass = exception?.javaClass?.name,
+      exceptionMessage = exception?.message,
+      exceptionStackTrace = exception?.stackTraceToString()
     )
+
+    logRepository.add(executionLog)
   }
 }

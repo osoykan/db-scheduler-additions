@@ -25,21 +25,3 @@ internal data class LogRequestParams(
 
   enum class LogSort { DEFAULT, TASK_NAME, TASK_INSTANCE, TIME_STARTED, TIME_FINISHED }
 }
-
-/**
- * Representation of an execution log entry.
- */
-data class ExecutionLog(
-  val id: Long,
-  val taskName: String,
-  val taskInstance: String,
-  val taskData: Any?,
-  val pickedBy: String?,
-  val timeStarted: Instant,
-  val timeFinished: Instant,
-  val succeeded: Boolean,
-  val durationMs: Long,
-  val exceptionClass: String?,
-  val exceptionMessage: String?,
-  val exceptionStackTrace: String?
-)

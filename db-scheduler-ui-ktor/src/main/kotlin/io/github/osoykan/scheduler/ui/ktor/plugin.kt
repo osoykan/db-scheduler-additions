@@ -1,16 +1,38 @@
 package io.github.osoykan.scheduler.ui.ktor
 
 import com.github.kagkarlsson.scheduler.Scheduler
+import com.github.kagkarlsson.scheduler.event.SchedulerListener
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import io.github.osoykan.scheduler.ui.backend.listener.ExecutionLogListener
-import io.github.osoykan.scheduler.ui.backend.repository.LogRepository
+import io.github.osoykan.scheduler.ui.backend.repository.*
 import io.github.osoykan.scheduler.ui.ktor.routing.configureRouting
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
 import io.ktor.server.routing.*
 
+/**
+ * Installs DbSchedulerUI plugin with an existing [DbSchedulerUIConfiguration].
+ * Use this when you need to share the config between scheduler and plugin:
+ * ```
+ * val uiConfig = DbSchedulerUIConfiguration().apply {
+ *   historyEnabled = true
+ * }
+ *
+ * // Add listener to scheduler
+ * scheduler {
+ *   listeners(uiConfig.createListener())
+ * }
+ *
+ * // Install plugin with same config
+ * install(DbSchedulerUI) {
+ *   from(uiConfig)
+ *   scheduler = { get() }
+ * }
+ * ```
+ */
 val DbSchedulerUI = createApplicationPlugin("DbSchedulerUI", createConfiguration = ::DbSchedulerUIConfiguration) {
   val config = pluginConfig
+
   application.routing {
     singlePageApplication {
       filesPath = "/static/db-scheduler"
@@ -61,68 +83,33 @@ class DbSchedulerUIConfiguration {
   var historyMaxSize: Int = 10000
 
   /**
-   * Internal log repository for storing execution history.
+   * Log repository for storing execution history.
+   * Defaults to [InMemoryLogRepository] with [historyMaxSize].
    */
-  internal var logRepository: LogRepository = LogRepository(historyMaxSize)
-    private set
+  var logRepository: LogRepository = InMemoryLogRepository(historyMaxSize)
 
   /**
-   * Internal flag to check if the listener has been created.
-   */
-  private var listenerCreated: Boolean = false
-
-  /**
-   * Creates and returns a SchedulerListener that captures execution history.
-   * This listener should be added to your Scheduler configuration.
-   *
-   * IMPORTANT: Call this method ONCE and use the returned listener in both:
-   * 1. Your Scheduler configuration (.addSchedulerListener)
-   * 2. The same instance will be used by the UI plugin automatically
-   *
-   * Example:
-   * ```kotlin
-   * // Create the UI configuration
-   * val uiConfig = DbSchedulerUIConfiguration()
-   * uiConfig.historyEnabled = true
-   *
-   * // Get the history listener - call this only once
-   * val historyListener = uiConfig.createHistoryListener()
-   *
-   * // Use in scheduler
-   * Scheduler.create(dataSource, tasks)
-   *   .addSchedulerListener(historyListener)
-   *   .build()
-   *
-   * // Install UI plugin with same configuration
-   * install(DbSchedulerUI) {
-   *   routePath = uiConfig.routePath
-   *   scheduler = { scheduler }
-   *   enabled = uiConfig.enabled
-   *   historyEnabled = uiConfig.historyEnabled
-   *   // The logRepository is shared automatically
-   *   useHistoryListenerFrom(uiConfig)
-   * }
+   * Creates the [ExecutionLogListener] that should be added to the scheduler.
+   * Add this listener to your scheduler builder when [historyEnabled] is true:
    * ```
-   *
-   * @param captureTaskData Whether to capture task data in the logs
-   * @return ExecutionLogListener to be added to the scheduler
+   * Scheduler.create(...)
+   *   .addSchedulerListener(config.createListener())
+   *   .build()
+   * ```
    */
-  fun createHistoryListener(captureTaskData: Boolean = taskData): ExecutionLogListener {
-    if (!listenerCreated) {
-      logRepository = LogRepository(historyMaxSize)
-      listenerCreated = true
-    }
-    return ExecutionLogListener(logRepository, captureTaskData)
-  }
+  fun createListener(): SchedulerListener = ExecutionLogListener(logRepository, taskData)
 
   /**
-   * Use the history listener and log repository from another configuration.
-   * This allows sharing the log repository between the scheduler and the UI plugin.
-   *
-   * @param otherConfig The configuration that created the history listener
+   * Copies settings from an existing [DbSchedulerUIConfiguration].
+   * Use this to share the same config (and [logRepository]) between scheduler and plugin.
    */
-  fun useHistoryListenerFrom(otherConfig: DbSchedulerUIConfiguration) {
-    this.logRepository = otherConfig.logRepository
-    this.historyEnabled = otherConfig.historyEnabled
+  fun from(other: DbSchedulerUIConfiguration) {
+    this.routePath = other.routePath
+    this.taskData = other.taskData
+    this.serializer = other.serializer
+    this.enabled = other.enabled
+    this.historyEnabled = other.historyEnabled
+    this.historyMaxSize = other.historyMaxSize
+    this.logRepository = other.logRepository
   }
 }

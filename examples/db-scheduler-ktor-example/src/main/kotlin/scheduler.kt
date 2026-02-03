@@ -1,5 +1,6 @@
 import arrow.core.Either
 import com.github.kagkarlsson.scheduler.*
+import com.github.kagkarlsson.scheduler.event.SchedulerListener
 import com.github.kagkarlsson.scheduler.logging.LogLevel
 import com.github.kagkarlsson.scheduler.serializer.Serializer
 import com.github.kagkarlsson.scheduler.task.Task
@@ -20,7 +21,7 @@ import kotlin.time.toJavaDuration
 fun KoinApplication.registerDbScheduler() {
   modules(
     module {
-      single { dbScheduler(get(), getAll(), getAll()) }.bind<Scheduler>().bind<SchedulerClient>()
+      single { dbScheduler(get(), getAll(), getAll(), get()) }.bind<Scheduler>().bind<SchedulerClient>()
     }
   )
 }
@@ -28,7 +29,8 @@ fun KoinApplication.registerDbScheduler() {
 private fun dbScheduler(
   postgresConfig: HikariConfig,
   tasks: List<Task<*>>,
-  recurringTasks: List<RecurringTask<*>>
+  recurringTasks: List<RecurringTask<*>>,
+  listener: SchedulerListener
 ): Scheduler {
   val dataSource = dataSource(postgresConfig)
   return Scheduler
@@ -42,7 +44,7 @@ private fun dbScheduler(
     .failureLogging(LogLevel.WARN, true)
     .threads(10)
     .registerShutdownHook()
-    .addSchedulerListener(historyListener)
+    .addSchedulerListener(listener)
     .build()
 }
 

@@ -22,16 +22,6 @@ import org.slf4j.LoggerFactory
 import java.time.*
 import javax.sql.DataSource
 
-// global ui config
-val dbSchedulerUIConfig = DbSchedulerUIConfiguration().apply {
-  routePath = "/db-scheduler"
-  enabled = true
-  historyEnabled = true
-  historyMaxSize = 10000
-}
-
-val historyListener = dbSchedulerUIConfig.createHistoryListener()
-
 fun main() {
   val (hikariConfig, hikariDataSource) = postgresql()
 
@@ -84,6 +74,14 @@ fun main() {
     applicationEnvironment {
       log = LoggerFactory.getLogger("DbSchedulerKtorExample")
     }
+    // Create UI config first so we can share the listener with the scheduler
+    val uiConfig = DbSchedulerUIConfiguration().apply {
+      routePath = "/db-scheduler"
+      enabled = true
+      historyEnabled = true
+      historyMaxSize = 10_000
+    }
+
     install(Koin) {
       registerDbScheduler()
       modules(
@@ -97,16 +95,16 @@ fun main() {
           single(named("recurringTask")) { recurringTask }.bind<RecurringTask<*>>()
           single(named("fastTask")) { fastTask }.bind<RecurringTask<*>>()
           single(named("slowTask")) { slowTask }.bind<RecurringTask<*>>()
+          // Register the UI config's listener for the scheduler to use
+          single { uiConfig.createListener() }
         }
       )
     }
     configureContentNegotiation()
     configureDbScheduler()
     install(DbSchedulerUI) {
-      routePath = dbSchedulerUIConfig.routePath
+      from(uiConfig)
       scheduler = { get() }
-      enabled = dbSchedulerUIConfig.enabled
-      useHistoryListenerFrom(dbSchedulerUIConfig)
     }
 
     monitor.subscribe(ApplicationStarted) {
