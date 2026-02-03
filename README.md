@@ -23,6 +23,61 @@ install(DbSchedulerUI) {
 > [!WARNING]
 > Enabling `taskData` might cause a peak in memory usage. The issue was discussed at https://github.com/bekk/db-scheduler-ui/issues/121
 
+### Execution History
+
+The UI plugin supports tracking task execution history. To enable it, create the configuration first and share the listener with your scheduler:
+
+```kotlin
+// 1. Create UI config before scheduler initialization
+val uiConfig = DbSchedulerUIConfiguration().apply {
+  routePath = "/db-scheduler"
+  enabled = true
+  historyEnabled = true      // Enable history tracking
+  historyMaxSize = 10_000    // Max entries to keep in memory (default: 10000)
+}
+
+// 2. Add the listener to your scheduler
+Scheduler.create(dataSource, tasks)
+  .addSchedulerListener(uiConfig.createListener())  // Creates ExecutionLogListener
+  .build()
+
+// Or if using the DSL:
+scheduler {
+  listeners(uiConfig.createListener())
+  // ... other config
+}
+
+// 3. Install plugin with the same config
+install(DbSchedulerUI) {
+  from(uiConfig)  // Shares the same logRepository
+  scheduler = { get<Scheduler>() }
+}
+```
+
+With Koin DI:
+```kotlin
+val uiConfig = DbSchedulerUIConfiguration().apply {
+  historyEnabled = true
+}
+
+install(Koin) {
+  modules(
+    module {
+      // Register listener for scheduler to use
+      single { uiConfig.createListener() }
+    }
+  )
+}
+
+install(DbSchedulerUI) {
+  from(uiConfig)
+  scheduler = { get() }
+}
+```
+
+> [!NOTE]
+> The `logRepository` defaults to `InMemoryLogRepository`. You can provide a custom implementation via `uiConfig.logRepository = YourCustomRepository()`.
+
 ## Mongo
 
 ```kotlin
