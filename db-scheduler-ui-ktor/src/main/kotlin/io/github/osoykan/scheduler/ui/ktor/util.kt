@@ -64,16 +64,23 @@ internal fun <K, V> Map<K, V>.toJson(): String =
  */
 private fun Any?.toJsonVal(): JsonVal = when (this) {
   null -> JsonVal.Null
+
   is String -> JsonVal.Str(this)
+
   is Number -> JsonVal.Num(this)
+
   is Boolean -> JsonVal.Bool(this)
+
   is Map<*, *> -> JsonVal.Obj(
     this.entries.associate { (k, v) ->
       k.toString() to v.toJsonVal()
     }
   )
+
   is Collection<*> -> JsonVal.Arr(this.map { it.toJsonVal() })
+
   is Array<*> -> JsonVal.Arr(this.map { it.toJsonVal() })
+
   else -> this.toComplexObject()
 }
 
@@ -105,9 +112,13 @@ private fun Any.toComplexObject(): JsonVal = try {
  */
 private fun JsonVal.toJsonString(): String = when (this) {
   is JsonVal.Null -> "null"
+
   is JsonVal.Str -> "\"${value.escapeJson()}\""
+
   is JsonVal.Num -> value.toString()
+
   is JsonVal.Bool -> value.toString()
+
   is JsonVal.Obj -> buildString {
     append('{')
     props
@@ -116,6 +127,7 @@ private fun JsonVal.toJsonString(): String = when (this) {
       .joinTo(this, separator = ",")
     append('}')
   }
+
   is JsonVal.Arr -> buildString {
     append('[')
     items

@@ -11,7 +11,6 @@ import java.time.Instant
  * This avoids serialization configuration dependencies (no need for @Serializable annotations or Jackson modules).
  * Users can work with any serialization library without additional setup.
  */
-
 internal data class TaskRequestParams(
   val filter: TaskFilter = TaskFilter.ALL,
   val pageNumber: Int = 0,
@@ -50,17 +49,3 @@ internal data class TaskDetailsRequestParams(
   val taskId: String? = null,
   val isRefresh: Boolean = true
 )
-
-/**
- * API responses now use Map<String, Any> to avoid serialization configuration dependencies.
- * This allows users to work with any serialization library (Jackson, kotlinx.serialization, etc.)
- * without needing to configure annotations or modules.
- *
- * Response schemas:
- * - Config: mapOf("historyEnabled" to Boolean, "configured" to Boolean)
- * - Tasks: mapOf("items" to List<Map<String,Any>>, "numberOfItems" to Int, "numberOfPages" to Int)
- * - Task: mapOf("taskName" to String, "taskInstance" to List<String>, "taskData" to List<Any?>, ...)
- * - TaskAction: mapOf("status" to String, "id" to String?, "name" to String?, "scheduleTime" to String?, "updated" to Int?)
- * - Poll: mapOf("newFailures" to Int, "newRunning" to Int, "newTasks" to Int, "newSucceeded" to Int, "stoppedFailing" to Int, "finishedRunning" to Int)
- * - Log: mapOf("items" to List<Map<String,Any>>, "numberOfItems" to Int, "numberOfPages" to Int)
- */

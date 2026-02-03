@@ -165,26 +165,31 @@ fun main() {
             scheduler.schedule(oneTimeTask.instance(taskId), now)
             call.respond(mapOf("message" to "Scheduled immediate task: $taskId"))
           }
+
           "future" -> {
             val taskId = "future-${System.currentTimeMillis()}"
             scheduler.schedule(oneTimeTask.instance(taskId), now.plus(Duration.ofSeconds(10)))
             call.respond(mapOf("message" to "Scheduled future task: $taskId (10s from now)"))
           }
+
           "data" -> {
             val taskId = "data-${System.currentTimeMillis()}"
             scheduler.schedule(dataTask.instance(taskId), now.plus(Duration.ofSeconds(5)))
             call.respond(mapOf("message" to "Scheduled data task: $taskId (5s from now)"))
           }
+
           "flaky" -> {
             val taskId = "flaky-${System.currentTimeMillis()}"
             scheduler.schedule(flakyTask.instance(taskId), now.plus(Duration.ofSeconds(2)))
             call.respond(mapOf("message" to "Scheduled flaky task: $taskId (2s from now)"))
           }
+
           "long" -> {
             val taskId = "long-${System.currentTimeMillis()}"
             scheduler.schedule(longRunningTask.instance(taskId), now.plus(Duration.ofSeconds(2)))
             call.respond(mapOf("message" to "Scheduled long-running task: $taskId (2s from now)"))
           }
+
           else -> {
             call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Unknown task type. Use: immediate, future, data, flaky, long"))
           }
