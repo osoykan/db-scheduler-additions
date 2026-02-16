@@ -3,7 +3,7 @@ kotlin = "2.2.10"
 kotlinx = "1.10.2"
 jackson = "2.21.0"
 arrow = "2.2.1.1"
-micrometer-prometheus = "1.16.2"
+micrometer-prometheus = "1.16.3"
 dbscheduler = "16.7.1"
 slf4j = "2.0.17"
 ktor = "3.4.0"
@@ -27,7 +27,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.28" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.31" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -60,16 +60,16 @@ mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-corouti
 ## Testing
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
-datafaker = { module = "net.datafaker:datafaker", version = "2.5.3" }
+datafaker = { module = "net.datafaker:datafaker", version = "2.5.4" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "7.0.14" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
-postgresql = { module = "org.postgresql:postgresql", version = "42.7.9" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.10" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.3" }
 testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.3" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "8.2.1" }
-kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.6" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.7" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
