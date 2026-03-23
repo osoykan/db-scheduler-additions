@@ -1,13 +1,13 @@
 [versions]
 kotlin = "2.2.10"
 kotlinx = "1.10.2"
-jackson = "2.21.1"
-arrow = "2.2.2"
+jackson = "2.21.2"
+arrow = "2.2.2.1"
 micrometer-prometheus = "1.16.4"
 dbscheduler = "16.7.1"
 slf4j = "2.0.17"
 ktor = "3.4.1"
-koin = "4.1.1"
+koin = "4.2.0"
 mongodb = "5.6.4"
 
 ## test
@@ -64,12 +64,12 @@ datafaker = { module = "net.datafaker:datafaker", version = "2.5.4" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "8.0.01" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.10" }
-testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.3" }
-testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.3" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.4" }
+testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.4" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "8.3.0" }
+spotless = { id = "com.diffplug.spotless", version = "8.4.0" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.7" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
