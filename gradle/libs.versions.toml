@@ -6,12 +6,12 @@ arrow = "2.2.2.1"
 micrometer-prometheus = "1.16.4"
 dbscheduler = "16.7.1"
 slf4j = "2.0.17"
-ktor = "3.4.1"
+ktor = "3.4.2"
 koin = "4.2.0"
 mongodb = "5.6.4"
 
 ## test
-kotest = "6.1.7"
+kotest = "6.1.9"
 
 [libraries]
 # Kotlin
@@ -70,6 +70,6 @@ testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", v
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
 spotless = { id = "com.diffplug.spotless", version = "8.4.0" }
-kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.7" }
+kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.8" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
