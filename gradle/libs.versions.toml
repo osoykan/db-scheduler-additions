@@ -8,10 +8,10 @@ dbscheduler = "16.7.1"
 slf4j = "2.0.17"
 ktor = "3.4.2"
 koin = "4.2.0"
-mongodb = "5.6.4"
+mongodb = "5.6.5"
 
 ## test
-kotest = "6.1.9"
+kotest = "6.1.11"
 
 [libraries]
 # Kotlin
