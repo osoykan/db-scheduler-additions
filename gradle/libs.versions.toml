@@ -1,14 +1,14 @@
 [versions]
 kotlin = "2.3.21"
-kotlinx = "1.10.2"
-jackson = "2.21.3"
+kotlinx = "1.11.0"
+jackson = "2.22.0"
 arrow = "2.2.2.1"
 micrometer-prometheus = "1.16.5"
-dbscheduler = "16.7.1"
-slf4j = "2.0.17"
-ktor = "3.4.3"
+dbscheduler = "16.12.0"
+slf4j = "2.0.18"
+ktor = "3.5.0"
 koin = "4.2.1"
-mongodb = "5.7.0"
+mongodb = "5.8.0"
 
 ## test
 kotest = "6.1.11"
@@ -27,7 +27,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.32" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.34" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -61,7 +61,7 @@ mongodb-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-corouti
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 datafaker = { module = "net.datafaker:datafaker", version = "2.5.4" }
-kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "8.0.02" }
+kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "8.0.4" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.11" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.5" }
@@ -69,7 +69,7 @@ testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", v
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "8.4.0" }
+spotless = { id = "com.diffplug.spotless", version = "8.6.0" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.8" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
