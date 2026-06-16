@@ -3,15 +3,15 @@ kotlin = "2.4.0"
 kotlinx = "1.11.0"
 jackson = "2.22.0"
 arrow = "2.2.3"
-micrometer-prometheus = "1.16.5"
+micrometer-prometheus = "1.17.0"
 dbscheduler = "16.12.0"
 slf4j = "2.0.18"
 ktor = "3.5.0"
-koin = "4.2.1"
+koin = "4.2.2"
 mongodb = "5.8.0"
 
 ## test
-kotest = "6.1.11"
+kotest = "6.2.0"
 
 [libraries]
 # Kotlin
@@ -62,14 +62,14 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
 datafaker = { module = "net.datafaker:datafaker", version = "2.5.4" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "8.0.4" }
-hikari = { module = "com.zaxxer:HikariCP", version = "7.0.2" }
+hikari = { module = "com.zaxxer:HikariCP", version = "7.1.0" }
 postgresql = { module = "org.postgresql:postgresql", version = "42.7.11" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.5" }
 testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.5" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "8.6.0" }
+spotless = { id = "com.diffplug.spotless", version = "8.7.0" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.8" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
