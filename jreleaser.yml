@@ -1,0 +1,32 @@
+project:
+  name: db-scheduler-additions
+  description: Additions to db-scheduler library
+  license: Apache-2.0
+  links:
+    homepage: https://github.com/osoykan/db-scheduler-additions
+    documentation: https://github.com/osoykan/db-scheduler-additions
+    bugTracker: https://github.com/osoykan/db-scheduler-additions/issues
+  authors:
+    - Oguzhan Soykan
+  inceptionYear: "2025"
+
+release:
+  github:
+    owner: osoykan
+    name: db-scheduler-additions
+    tagName: "v{{projectVersion}}"
+    releaseName: "db-scheduler-additions v{{projectVersion}}"
+    overwrite: false
+    skipTag: false
+    changelog:
+      enabled: true
+      formatted: ALWAYS
+      preset: conventional-commits
+      contributors:
+        enabled: false
+      hide:
+        categories:
+          - merge
+        contributors:
+          - "[bot]"
+          - "GitHub"

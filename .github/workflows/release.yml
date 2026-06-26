@@ -1,30 +1,37 @@
-name: Publish to Maven
+name: Release
 
 on:
-  release:
-    types: [ created ]
+  workflow_dispatch:
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
+    if: github.repository == 'osoykan/db-scheduler-additions'
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
-      - name: Configure JDK
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          java-version: 17
+          java-version: '17'
           distribution: 'temurin'
-
-      - name: Check out Git repository
-        uses: actions/checkout@v7
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: current
+
+      - name: Extract version from build.gradle.kts
+        run: |
+          VERSION=$(grep '^version' build.gradle.kts | head -1 | sed -E 's/.*"(.*)".*/\1/')
+          echo "JRELEASER_PROJECT_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Releasing version: $VERSION"
 
       - name: Publish to Maven Central
         run: gradle --no-configuration-cache publish
@@ -34,3 +41,20 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.ossrh_username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.ossrh_pass }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: jreleaser/release-action@v2
+        with:
+          arguments: full-release
+        env:
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JRELEASER_PROJECT_VERSION: ${{ env.JRELEASER_PROJECT_VERSION }}
+
+      - name: Upload JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jreleaser-release
+          path: |
+            out/jreleaser/trace.log
+            out/jreleaser/output.properties
