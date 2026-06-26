@@ -4,7 +4,7 @@ package io.github.osoykan.dbscheduler
 
 import arrow.atomic.AtomicInt
 import com.github.kagkarlsson.scheduler.*
-import com.github.kagkarlsson.scheduler.task.FailureHandler.MaxRetriesFailureHandler
+import com.github.kagkarlsson.scheduler.task.FailureHandler
 import com.github.kagkarlsson.scheduler.task.helper.Tasks
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import io.github.osoykan.scheduler.DocumentDatabase
@@ -43,7 +43,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       }
       logger.debug("Condition not met yet. Current executions: N/A")
       clock.advanceBy(checkInterval)
-      delay(10)
+      delay(10.milliseconds)
     }
 
     if (!condition()) {
@@ -109,7 +109,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Verify no additional executions
     testClock.advanceBy(5.seconds)
-    delay(50)
+    delay(50.milliseconds)
     executionCount.get() shouldBe 1
 
     scheduler.stop()
@@ -150,7 +150,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Verify no additional executions
     testClock.advanceBy(5.seconds)
-    delay(50)
+    delay(50.milliseconds)
     executionCount.get() shouldBe amountOfTasks
 
     scheduler.stop()
@@ -184,7 +184,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Advance time to trigger second execution
     testClock.advanceBy(4.seconds)
-    delay(100)
+    delay(100.milliseconds)
 
     executionCount.get() shouldBe 2
 
@@ -229,11 +229,11 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Start schedulers sequentially to avoid startup race conditions
     scheduler1.start()
-    delay(50) // Small delay between starts
+    delay(50.milliseconds) // Small delay between starts
     scheduler2.start()
-    delay(50)
+    delay(50.milliseconds)
     scheduler3.start()
-    delay(100) // Allow schedulers to initialize
+    delay(100.milliseconds) // Allow schedulers to initialize
 
     // Advance time to trigger execution
     testClock.advanceBy(2.seconds)
@@ -268,9 +268,10 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
     val task = Tasks
       .oneTime("Failing Task-${UUID.randomUUID()}", TestTaskData::class.java)
       .onFailure(
-        MaxRetriesFailureHandler(maxRetry) { e, a ->
-          a.reschedule(e, testClock.peekAhead(100.milliseconds))
-        }
+        FailureHandler
+          .maxRetries<TestTaskData>(maxRetry)
+          .retryEvery(100.milliseconds.toJavaDuration())
+          .then { _, ops -> ops.stop() }
       ).execute { _, _ ->
         executionCount.incrementAndGet()
         error("on purpose failure")
@@ -311,9 +312,10 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
         TestTaskData::class.java
       ).initialData(TestTaskData("test"))
       .onFailure(
-        MaxRetriesFailureHandler(maxRetry) { e, a ->
-          a.reschedule(e, testClock.peekAhead(100.milliseconds))
-        }
+        FailureHandler
+          .maxRetries<TestTaskData>(maxRetry)
+          .retryEvery(100.milliseconds.toJavaDuration())
+          .then { _, ops -> ops.stop() }
       ).execute { _, _ ->
         executionCount.incrementAndGet()
         error("on purpose failure")
@@ -357,7 +359,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Advance time while paused - task should not execute
     testClock.setTo(executionTime.plusSeconds(1))
-    delay(100)
+    delay(100.milliseconds)
     executionCount.get() shouldBe 0
 
     scheduler.resume()
@@ -434,13 +436,13 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
 
     // Advance time past execution time
     testClock.setTo(executionTime.plusSeconds(1))
-    delay(100)
+    delay(100.milliseconds)
 
     executionCount.get() shouldBe 0
 
     // Verify it stays 0
     testClock.advanceBy(5.seconds)
-    delay(50)
+    delay(50.milliseconds)
     executionCount.get() shouldBe 0
 
     scheduler.stop()
@@ -533,7 +535,7 @@ abstract class SchedulerUseCases<T : DocumentDatabase<T>> : AnnotationSpec() {
       scheduler.schedule(scheduledTask, executionTime)
     }
 
-    delay(100) // Allow tasks to be persisted
+    delay(100.milliseconds) // Allow tasks to be persisted
 
     testClock.advanceBy(20.days)
 

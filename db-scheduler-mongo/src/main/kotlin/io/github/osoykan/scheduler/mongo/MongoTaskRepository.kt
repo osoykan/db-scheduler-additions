@@ -52,9 +52,14 @@ class MongoTaskRepository(
       // Use ordered=false to continue on duplicate key errors
       collection.insertMany(entitiesToInsert, InsertManyOptions().ordered(false))
       logger.debug("Inserted {} tasks in batch", entitiesToInsert.size)
-    } catch (e: Exception) {
-      // Handle duplicate key errors gracefully - some tasks might already exist
-      logger.debug("Batch insert completed with some duplicates ignored: {}", e.message)
+    } catch (e: MongoBulkWriteException) {
+      // Duplicate keys are expected (some tasks may already exist) and ignored.
+      // Any other write error is a genuine failure and must surface to the caller.
+      val nonDuplicate = e.writeErrors.filter { it.category != ErrorCategory.DUPLICATE_KEY }
+      if (nonDuplicate.isNotEmpty()) {
+        throw e
+      }
+      logger.debug("Batch insert completed with {} duplicates ignored", e.writeErrors.size)
     }
   }
 
@@ -90,7 +95,9 @@ class MongoTaskRepository(
         Updates.set(MongoTaskEntity::consecutiveFailures.name, 0),
         Updates.set(MongoTaskEntity::executionTime.name, newExecutionTime),
         Updates.set(MongoTaskEntity::taskData.name, serializer.serialize(newExecution.taskInstance.data)),
-        Updates.inc(MongoTaskEntity::version.name, 1)
+        // replace conceptually creates a fresh execution in the same row, so the
+        // version is reset to an absolute 1 (matches the JDBC reference).
+        Updates.set(MongoTaskEntity::version.name, 1L)
       ),
       FindOneAndUpdateOptions().upsert(false).returnDocument(ReturnDocument.AFTER)
     )
@@ -128,6 +135,25 @@ class MongoTaskRepository(
       .map { toExecution(it) }
       .collect { consumer.accept(it) }
   }
+
+  override suspend fun getScheduledExecutionsSummaryByTask(): List<TaskSummary> = collection
+    .find()
+    .toList()
+    .groupBy { it.taskName }
+    .map { (taskName, entities) ->
+      val notPicked = entities.filterNot { it.picked }
+      TaskSummary(
+        taskName,
+        entities.size,
+        entities.count { it.picked },
+        notPicked.count { it.consecutiveFailures > 0 },
+        notPicked.count { it.consecutiveFailures == 0 },
+        entities.mapNotNull { it.executionTime }.minOrNull(),
+        entities.mapNotNull { it.lastSuccess }.maxOrNull(),
+        entities.mapNotNull { it.lastFailure }.maxOrNull(),
+        entities.maxOf { it.consecutiveFailures }
+      )
+    }
 
   override suspend fun lockAndFetchGeneric(
     now: Instant,
@@ -193,7 +219,69 @@ class MongoTaskRepository(
   ): List<Execution> = lockAndFetchGeneric(now, limit)
 
   override suspend fun remove(execution: Execution) {
-    collection.deleteOne(Filters.eq(TaskEntity::identity.name, execution.documentId()))
+    val removed = collection
+      .deleteOne(
+        Filters.and(
+          Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
+          Filters.eq(MongoTaskEntity::version.name, execution.version)
+        )
+      ).deletedCount
+    if (removed != 1L) {
+      throw ExecutionException("Expected one execution to be removed, but removed $removed. Indicates a bug.", execution)
+    }
+  }
+
+  override suspend fun unpickPickedBatch(pickedExecutions: List<Execution>) {
+    if (pickedExecutions.isEmpty()) return
+
+    val updates = pickedExecutions.map { execution ->
+      UpdateOneModel<MongoTaskEntity>(
+        Filters.and(
+          Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
+          Filters.eq(MongoTaskEntity::version.name, execution.version),
+          Filters.eq(MongoTaskEntity::picked.name, true)
+        ),
+        Updates.combine(
+          Updates.set(MongoTaskEntity::picked.name, false),
+          Updates.set(MongoTaskEntity::pickedBy.name, null),
+          Updates.inc(MongoTaskEntity::version.name, 1)
+        )
+      )
+    }
+
+    val result = collection.bulkWrite(updates, BulkWriteOptions().ordered(false))
+    logger.debug("Unpicked {} out of {} tasks in batch", result.modifiedCount, pickedExecutions.size)
+  }
+
+  override suspend fun reschedule(
+    execution: Execution,
+    rescheduleUpdate: RescheduleUpdate
+  ): Boolean {
+    val filter = Filters.and(
+      Filters.eq(MongoTaskEntity::identity.name, execution.documentId()),
+      Filters.eq(MongoTaskEntity::version.name, execution.version)
+    )
+
+    val updates = mutableListOf(
+      Updates.set(MongoTaskEntity::picked.name, false),
+      Updates.set(MongoTaskEntity::pickedBy.name, null),
+      Updates.set(MongoTaskEntity::lastHeartbeat.name, null),
+      Updates.set(MongoTaskEntity::executionTime.name, rescheduleUpdate.executionTime()),
+      Updates.inc(MongoTaskEntity::version.name, 1)
+    )
+
+    rescheduleUpdate.lastSuccess()?.let { updates.add(Updates.set(MongoTaskEntity::lastSuccess.name, it.value())) }
+    rescheduleUpdate.lastFailure()?.let { updates.add(Updates.set(MongoTaskEntity::lastFailure.name, it.value())) }
+    rescheduleUpdate.consecutiveFailures()?.let { updates.add(Updates.set(MongoTaskEntity::consecutiveFailures.name, it.value())) }
+    rescheduleUpdate.data()?.let { updates.add(Updates.set(MongoTaskEntity::taskData.name, serializer.serialize(it.value()))) }
+
+    val updated = collection.updateOne(filter, Updates.combine(updates)).modifiedCount
+
+    if (updated != 1L) {
+      throw ExecutionException("Expected one execution to be updated, but updated $updated. Indicates a bug.", execution)
+    }
+
+    return true
   }
 
   override suspend fun reschedule(
@@ -293,7 +381,7 @@ class MongoTaskRepository(
     .find(
       Filters.and(
         Filters.eq(MongoTaskEntity::picked.name, true),
-        Filters.lt(MongoTaskEntity::lastHeartbeat.name, olderThan)
+        Filters.lte(MongoTaskEntity::lastHeartbeat.name, olderThan)
       )
     ).sort(Sorts.ascending(MongoTaskEntity::lastHeartbeat.name))
     .map { toExecution(it) }
@@ -334,7 +422,11 @@ class MongoTaskRepository(
           Updates.set(MongoTaskEntity::lastHeartbeat.name, heartbeatTime)
         )
       ).let { updated ->
-        if (updated.modifiedCount >= 1L) {
+        // Use matchedCount, not modifiedCount: writing an identical heartbeat is a
+        // no-op (modifiedCount == 0) but the lock is still held, so it must report
+        // success. Only a non-matching version/identity (row removed or rescheduled)
+        // is a genuine failure. Mirrors the JDBC contract (matched-row count).
+        if (updated.matchedCount >= 1L) {
           logger.debug("Heartbeat updated for execution with id {}", execution.documentId())
           return true
         } else {
@@ -349,14 +441,13 @@ class MongoTaskRepository(
     return collection
       .find(
         Filters.and(
-          Filters.exists(MongoTaskEntity::lastFailure.name),
+          // Currently failing
+          Filters.gt(MongoTaskEntity::consecutiveFailures.name, 0),
           Filters.or(
-            // No success at all, or last success before boundary
-            Filters.not(Filters.exists(MongoTaskEntity::lastSuccess.name)),
+            // No success at all, or last success before the boundary
+            Filters.eq(MongoTaskEntity::lastSuccess.name, null),
             Filters.lt(MongoTaskEntity::lastSuccess.name, boundary)
-          ),
-          // Last failure was before boundary (failing for longer than interval)
-          Filters.lt(MongoTaskEntity::lastFailure.name, boundary)
+          )
         )
       ).map { toExecution(it) }
       .toList()
@@ -373,14 +464,36 @@ class MongoTaskRepository(
   }
 
   override suspend fun createIndexes() {
+    // Compound indexes follow the ESR rule (Equality, Sort, Range) so a single
+    // index serves both the filter and the sort of each hot query.
     collection
       .createIndexes(
         listOf(
           IndexModel(Indexes.ascending(MongoTaskEntity::identity.name), IndexOptions().unique(true)),
-          IndexModel(Indexes.ascending(MongoTaskEntity::picked.name), IndexOptions().name("idx_is_picked")),
-          IndexModel(Indexes.ascending(MongoTaskEntity::executionTime.name), IndexOptions().name("idx_execution_time")),
-          IndexModel(Indexes.ascending(MongoTaskEntity::lastHeartbeat.name), IndexOptions().name("idx_last_heartbeat")),
-          IndexModel(Indexes.ascending(MongoTaskEntity::taskName.name), IndexOptions().name("idx_task_name"))
+          // getDue + lockAndFetchGeneric: eq(picked) + range/sort(executionTime)
+          IndexModel(
+            Indexes.ascending(MongoTaskEntity::picked.name, MongoTaskEntity::executionTime.name),
+            IndexOptions().name("idx_picked_executionTime")
+          ),
+          // getDeadExecutions: eq(picked) + range/sort(lastHeartbeat)
+          IndexModel(
+            Indexes.ascending(MongoTaskEntity::picked.name, MongoTaskEntity::lastHeartbeat.name),
+            IndexOptions().name("idx_picked_lastHeartbeat")
+          ),
+          // getScheduledExecutions(taskName, ...): eq(taskName, picked) + sort(executionTime)
+          IndexModel(
+            Indexes.ascending(
+              MongoTaskEntity::taskName.name,
+              MongoTaskEntity::picked.name,
+              MongoTaskEntity::executionTime.name
+            ),
+            IndexOptions().name("idx_taskName_picked_executionTime")
+          ),
+          // getExecutionsFailingLongerThan: range(consecutiveFailures) + range(lastSuccess)
+          IndexModel(
+            Indexes.ascending(MongoTaskEntity::consecutiveFailures.name, MongoTaskEntity::lastSuccess.name),
+            IndexOptions().name("idx_consecutiveFailures_lastSuccess")
+          )
         )
       ).toList()
   }

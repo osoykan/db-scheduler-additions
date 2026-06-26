@@ -18,9 +18,9 @@ class MongoSchedulerUseCases : SchedulerUseCases<Mongo>() {
   private lateinit var client: MongoClient
 
   override suspend fun beforeSpec(spec: Spec) {
-    mongoContainer = MongoDBContainer(DockerImageName.parse("mongo:latest")).apply {
-      portBindings = listOf("27017:27017")
-    }
+    // No fixed port binding: specs run concurrently, so let testcontainers assign
+    // a random host port to avoid collisions with other Mongo-backed specs.
+    mongoContainer = MongoDBContainer(DockerImageName.parse("mongo:latest"))
     mongoContainer.start()
 
     val settings = MongoClientSettings

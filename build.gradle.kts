@@ -65,12 +65,12 @@ subprojects.of(projects.dbSchedulerAdditions.name, filter = { p -> publishedProj
     publishToMavenCentral()
     pom {
       name.set(project.name)
-      description.set(project.properties["projectDescription"].toString())
-      url.set(project.properties["projectUrl"].toString())
+      description.set(project.property("projectDescription").toString())
+      url.set(project.property("projectUrl").toString())
       licenses {
         license {
-          name.set(project.properties["licence"].toString())
-          url.set(project.properties["licenceUrl"].toString())
+          name.set(project.property("licence").toString())
+          url.set(project.property("licenceUrl").toString())
         }
       }
       developers {
@@ -83,7 +83,7 @@ subprojects.of(projects.dbSchedulerAdditions.name, filter = { p -> publishedProj
       scm {
         connection.set("scm:git@github.com:osoykan/db-scheduler-additions.git")
         developerConnection.set("scm:git:ssh://github.com:osoykan/db-scheduler-additions.git")
-        url.set(project.properties["projectUrl"].toString())
+        url.set(project.property("projectUrl").toString())
       }
     }
     signAllPublications()

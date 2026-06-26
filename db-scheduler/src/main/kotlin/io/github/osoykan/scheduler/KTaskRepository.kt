@@ -109,6 +109,17 @@ class KTaskRepository(
       }.merge()
   }
 
+  override fun getScheduledExecutionsSummaryByTask(): List<TaskSummary> = runBlocking(scope.coroutineContext) {
+    logger.debug("Getting scheduled executions summary by task")
+    Either
+      .catch { taskRepository.getScheduledExecutionsSummaryByTask() }
+      .onRight { logger.debug("Got scheduled executions summary by task") }
+      .mapLeft {
+        logger.error("Failed to getScheduledExecutionsSummaryByTask", it)
+        throw it
+      }.merge()
+  }
+
   override fun lockAndFetchGeneric(now: Instant, limit: Int): List<Execution> = runBlocking(scope.coroutineContext) {
     logger.debug("Locking and fetching generic for {}, {}", now, limit)
     Either
@@ -138,6 +149,20 @@ class KTaskRepository(
       .onRight { logger.debug("Removed for {}", execution) }
       .mapLeft {
         logger.error("Failed to remove for $execution", it)
+        throw it
+      }.merge()
+  }
+
+  override fun reschedule(
+    execution: Execution,
+    rescheduleUpdate: RescheduleUpdate
+  ): Boolean = runBlocking(scope.coroutineContext) {
+    logger.debug("Rescheduling for {}, {}", execution, rescheduleUpdate)
+    Either
+      .catch { taskRepository.reschedule(execution, rescheduleUpdate) }
+      .onRight { logger.debug("Rescheduled for {}, {}", execution, rescheduleUpdate) }
+      .mapLeft {
+        logger.error("Failed to reschedule for $execution, $rescheduleUpdate", it)
         throw it
       }.merge()
   }
@@ -212,6 +237,17 @@ class KTaskRepository(
       .onRight { logger.debug("Picked for execution {}, lastHeartbeat:{}", e, timePicked) }
       .mapLeft {
         logger.error("Failed to pick for $e, $timePicked", it)
+        throw it
+      }.merge()
+  }
+
+  override fun unpickPickedBatch(pickedExecutions: List<Execution>) = runBlocking(scope.coroutineContext) {
+    logger.debug("Unpicking picked batch for {}", pickedExecutions)
+    Either
+      .catch { taskRepository.unpickPickedBatch(pickedExecutions) }
+      .onRight { logger.debug("Unpicked picked batch for {}", pickedExecutions) }
+      .mapLeft {
+        logger.error("Failed to unpickPickedBatch for $pickedExecutions", it)
         throw it
       }.merge()
   }

@@ -1,6 +1,7 @@
 package io.github.osoykan.scheduler
 
 import com.github.kagkarlsson.scheduler.ScheduledExecutionsFilter
+import com.github.kagkarlsson.scheduler.TaskSummary
 import com.github.kagkarlsson.scheduler.task.*
 import java.time.*
 import java.util.*
@@ -21,11 +22,17 @@ interface CoroutineTaskRepository {
 
   suspend fun getScheduledExecutions(filter: ScheduledExecutionsFilter, taskName: String, consumer: Consumer<Execution>)
 
+  suspend fun getScheduledExecutionsSummaryByTask(): List<TaskSummary>
+
   suspend fun lockAndFetchGeneric(now: Instant, limit: Int): List<Execution>
 
   suspend fun lockAndGetDue(now: Instant, limit: Int): List<Execution>
 
   suspend fun remove(execution: Execution)
+
+  suspend fun unpickPickedBatch(pickedExecutions: List<Execution>)
+
+  suspend fun reschedule(execution: Execution, rescheduleUpdate: RescheduleUpdate): Boolean
 
   suspend fun reschedule(
     execution: Execution,

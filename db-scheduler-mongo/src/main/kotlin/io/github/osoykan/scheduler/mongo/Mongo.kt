@@ -130,7 +130,6 @@ class MongoSchedulerDsl : SchedulerDsl<Mongo>() {
     }
 }
 
-@SchedulerDslMarker
 fun scheduler(
-  @SchedulerDslMarker block: MongoSchedulerDsl.() -> Unit
+  block: MongoSchedulerDsl.() -> Unit
 ): Scheduler = MongoSchedulerDsl().apply(block).build()
