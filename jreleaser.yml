@@ -15,7 +15,7 @@ release:
     owner: osoykan
     name: db-scheduler-additions
     tagName: "v{{projectVersion}}"
-    releaseName: "db-scheduler-additions v{{projectVersion}}"
+    releaseName: "v{{projectVersion}}"
     overwrite: false
     skipTag: false
     changelog:
