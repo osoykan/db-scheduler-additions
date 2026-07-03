@@ -89,10 +89,12 @@ fun main() {
       authenticate("db-scheduler-auth") {
         // Expose db-scheduler UI routes inside this authenticated block!
         // This is possible because we extracted dbSchedulerUI as a Route extension function.
-        dbSchedulerUI(DbSchedulerUIConfiguration().apply {
-          from(uiConfig)
-          scheduler = { get() }
-        })
+        dbSchedulerUI(
+          DbSchedulerUIConfiguration().apply {
+            from(uiConfig)
+            scheduler = { get() }
+          }
+        )
       }
     }
 

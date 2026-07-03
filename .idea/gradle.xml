@@ -24,6 +24,7 @@
             <option value="$PROJECT_DIR$/db-scheduler-mongo" />
             <option value="$PROJECT_DIR$/db-scheduler-ui-ktor" />
             <option value="$PROJECT_DIR$/examples" />
+            <option value="$PROJECT_DIR$/examples/db-scheduler-ktor-authenticated-example" />
             <option value="$PROJECT_DIR$/examples/db-scheduler-ktor-example" />
           </set>
         </option>
