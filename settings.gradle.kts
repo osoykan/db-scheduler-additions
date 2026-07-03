@@ -7,7 +7,8 @@ include(
   "db-scheduler-mongo",
   "db-scheduler-ui-ktor",
   "examples",
-  "examples:db-scheduler-ktor-example"
+  "examples:db-scheduler-ktor-example",
+  "examples:db-scheduler-ktor-authenticated-example"
 )
 
 pluginManagement {

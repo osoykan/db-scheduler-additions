@@ -5,7 +5,7 @@ import io.github.osoykan.scheduler.ui.backend.util.Caching
 import io.github.osoykan.scheduler.ui.ktor.DbSchedulerUIConfiguration
 import io.ktor.server.routing.*
 
-internal fun Routing.configureRouting(
+internal fun Route.configureRouting(
   config: DbSchedulerUIConfiguration
 ) {
   /**

@@ -11,6 +11,34 @@ import io.ktor.server.http.content.*
 import io.ktor.server.routing.*
 
 /**
+ * Installs the db-scheduler UI and API routes on a specific [Route] node.
+ * This allows nesting the UI inside authenticated blocks, rate-limiters, etc.
+ *
+ * Example with authentication:
+ * ```
+ * routing {
+ *     authenticate("admin") {
+ *         dbSchedulerUI(DbSchedulerUIConfiguration().apply {
+ *             scheduler = { get() }
+ *             enabled = true
+ *         })
+ *     }
+ * }
+ * ```
+ *
+ * @param config The UI configuration
+ */
+fun Route.dbSchedulerUI(config: DbSchedulerUIConfiguration) {
+  singlePageApplication {
+    filesPath = "/static/db-scheduler"
+    useResources = true
+    applicationRoute = config.routePath
+  }
+
+  configureRouting(config)
+}
+
+/**
  * Installs DbSchedulerUI plugin with an existing [DbSchedulerUIConfiguration].
  * Use this when you need to share the config between scheduler and plugin:
  * ```
@@ -34,13 +62,7 @@ val DbSchedulerUI = createApplicationPlugin("DbSchedulerUI", createConfiguration
   val config = pluginConfig
 
   application.routing {
-    singlePageApplication {
-      filesPath = "/static/db-scheduler"
-      useResources = true
-      applicationRoute = config.routePath
-    }
-
-    configureRouting(config)
+    dbSchedulerUI(config)
   }
 }
 
