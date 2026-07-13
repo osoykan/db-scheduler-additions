@@ -1,17 +1,17 @@
 [versions]
 kotlin = "2.4.0"
 kotlinx = "1.11.0"
-jackson = "2.22.0"
+jackson = "2.22.1"
 arrow = "2.2.3"
 micrometer-prometheus = "1.17.0"
 dbscheduler = "16.12.0"
 slf4j = "2.0.18"
 ktor = "3.5.1"
 koin = "4.2.2"
-mongodb = "5.8.0"
+mongodb = "5.9.0"
 
 ## test
-kotest = "6.2.1"
+kotest = "6.2.2"
 
 [libraries]
 # Kotlin
@@ -27,7 +27,7 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-parameternames = { module = "com.fasterxml.jackson.module:jackson-module-parameter-names", version.ref = "jackson" }
 
 # Logging
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.37" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.38" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 janino = { module = "org.codehaus.janino:janino", version = "3.1.12" }
 
@@ -64,7 +64,7 @@ kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = 
 datafaker = { module = "net.datafaker:datafaker", version = "2.7.0" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "8.0.4" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.1.0" }
-postgresql = { module = "org.postgresql:postgresql", version = "42.7.12" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.13" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.5" }
 testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.5" }
 
