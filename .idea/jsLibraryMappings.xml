@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JavaScriptLibraryMappings">
+    <excludedPredefinedLibrary name="db-scheduler-additions/db-scheduler-ui-ktor/.gradle/nodejs/node-v24.3.0-darwin-arm64/lib/node_modules" />
+    <excludedPredefinedLibrary name="db-scheduler-additions/db-scheduler-ui-ktor/build/resources/main/static/scheduler-ui/node_modules" />
+  </component>
+</project>
