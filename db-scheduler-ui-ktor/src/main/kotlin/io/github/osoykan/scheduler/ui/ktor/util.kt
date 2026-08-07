@@ -1,10 +1,9 @@
 package io.github.osoykan.scheduler.ui.ktor
 
-import io.github.osoykan.scheduler.ui.backend.model.LogRequestParams
-import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
-import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams
+import io.github.osoykan.scheduler.ui.backend.model.*
 import io.ktor.server.application.*
 import io.ktor.util.*
+import java.lang.reflect.Modifier
 import java.time.Instant
 
 private val loader = object {}.javaClass.classLoader
@@ -91,8 +90,9 @@ private fun Any?.toJsonVal(): JsonVal = when (this) {
 private fun Any.toComplexObject(): JsonVal = try {
   val kClass = this::class
   val properties = kClass.java.declaredFields
-    .filter { !it.isSynthetic }
-    .associate { field ->
+    .filter {
+      !it.isSynthetic && !Modifier.isStatic(it.modifiers)
+    }.associate { field ->
       field.isAccessible = true
       field.name to field.get(this).toJsonVal()
     }
@@ -121,19 +121,13 @@ private fun JsonVal.toJsonString(): String = when (this) {
 
   is JsonVal.Obj -> buildString {
     append('{')
-    props
-      .asSequence()
-      .map { (key, value) -> "\"${key.escapeJson()}\":${value.toJsonString()}" }
-      .joinTo(this, separator = ",")
+    props.asSequence().joinTo(this, separator = ",") { (key, value) -> "\"${key.escapeJson()}\":${value.toJsonString()}" }
     append('}')
   }
 
   is JsonVal.Arr -> buildString {
     append('[')
-    items
-      .asSequence()
-      .map { it.toJsonString() }
-      .joinTo(this, separator = ",")
+    items.joinTo(this, separator = ",") { it.toJsonString() }
     append(']')
   }
 }

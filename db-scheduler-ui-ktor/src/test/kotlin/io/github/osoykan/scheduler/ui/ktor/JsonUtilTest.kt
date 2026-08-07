@@ -2,6 +2,7 @@ package io.github.osoykan.scheduler.ui.ktor
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import java.time.LocalDateTime
 
 class JsonUtilTest :
   FunSpec({
@@ -282,5 +283,9 @@ class JsonUtilTest :
         Item(1, "Apple"),
         Item(2, "Banana")
       ).toJson() shouldBe """[{"id":1,"name":"Apple"},{"id":2,"name":"Banana"}]"""
+    }
+
+    test("Any?.toJson() works on LocalDateTime") {
+      LocalDateTime.MIN.toJson() shouldBe """"-999999999-01-01T00:00""""
     }
   })
