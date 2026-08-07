@@ -5,6 +5,7 @@ import io.github.osoykan.scheduler.ui.backend.model.TaskDetailsRequestParams
 import io.github.osoykan.scheduler.ui.backend.model.TaskRequestParams
 import io.ktor.server.application.*
 import io.ktor.util.*
+import java.lang.reflect.Modifier
 import java.time.Instant
 
 private val loader = object {}.javaClass.classLoader
@@ -91,7 +92,9 @@ private fun Any?.toJsonVal(): JsonVal = when (this) {
 private fun Any.toComplexObject(): JsonVal = try {
   val kClass = this::class
   val properties = kClass.java.declaredFields
-    .filter { !it.isSynthetic }
+    .filter {
+      !it.isSynthetic && !Modifier.isStatic(it.modifiers)
+    }
     .associate { field ->
       field.isAccessible = true
       field.name to field.get(this).toJsonVal()
