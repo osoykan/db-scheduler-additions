@@ -157,6 +157,46 @@ internal fun getResourceAsText(path: String): String = loader
   ?.let { r -> r.bufferedReader().use { it.readText() } }
   ?: ""
 
+/**
+ * Normalizes a path string to ensure it starts with a leading slash and has no trailing slash.
+ * Empty or blank strings return empty string.
+ */
+internal fun normalizeContextPath(path: String): String {
+  if (path.isBlank()) {
+    return ""
+  }
+
+  var normalized = path.trim()
+
+  if (!normalized.startsWith("/")) {
+    normalized = "/" + normalized
+  }
+
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.substring(0, normalized.length - 1)
+  }
+
+  return normalized
+}
+
+/**
+ * Rewrites the index.html to include context-path.js and update asset paths.
+ * This is needed to support serving the UI behind a reverse proxy with a path prefix.
+ */
+internal fun rewriteIndexHtmlWithContextPath(html: String, contextPath: String): String {
+  val normalizedContextPath = normalizeContextPath(contextPath)
+
+  val assetPathPrefix = "$normalizedContextPath/db-scheduler/"
+
+  val contextPathScriptTag = "<script>window.CONTEXT_PATH='$normalizedContextPath';</script>"
+
+  return html
+    // Update links to assets with correct asset path
+    .replace("/db-scheduler/", assetPathPrefix)
+    // Insert context-path script after <head>
+    .replace("<head>", "<head>\n    $contextPathScriptTag")
+}
+
 internal inline fun <reified T> ApplicationCall.receiveParametersTyped(): T {
   val map = parameters.flattenEntries().associateBy { it.first }.mapValues { e -> e.value.second }
   return when (T::class) {
