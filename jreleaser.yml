@@ -23,7 +23,7 @@ release:
       formatted: ALWAYS
       preset: conventional-commits
       contributors:
-        enabled: false
+        enabled: true
       hide:
         categories:
           - merge
