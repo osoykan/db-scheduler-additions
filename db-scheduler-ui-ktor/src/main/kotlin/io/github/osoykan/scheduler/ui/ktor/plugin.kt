@@ -6,8 +6,10 @@ import com.github.kagkarlsson.scheduler.serializer.Serializer
 import io.github.osoykan.scheduler.ui.backend.listener.ExecutionLogListener
 import io.github.osoykan.scheduler.ui.backend.repository.*
 import io.github.osoykan.scheduler.ui.ktor.routing.configureRouting
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 /**
@@ -29,10 +31,40 @@ import io.ktor.server.routing.*
  * @param config The UI configuration
  */
 fun Route.dbSchedulerUI(config: DbSchedulerUIConfiguration) {
-  singlePageApplication {
-    filesPath = "/static/db-scheduler"
-    useResources = true
-    applicationRoute = config.routePath
+  if (config.contextPath.isBlank()) {
+    singlePageApplication {
+      filesPath = "/static/db-scheduler"
+      useResources = true
+      applicationRoute = config.routePath
+    }
+
+    return
+  }
+
+  // Load and rewrite the index.html with context path
+  val indexHtml = getResourceAsText("static/db-scheduler/index.html")
+  val rewrittenIndexHtml = rewriteIndexHtmlWithContextPath(indexHtml, config.contextPath)
+
+  val routePathWithoutLeadingSlash = config.routePath.removePrefix("/")
+
+  // Route for the db-scheduler path
+  route(routePathWithoutLeadingSlash) {
+    // Serve the rewritten index.html at the root of the route path
+    get {
+      call.respondText(rewrittenIndexHtml, contentType = ContentType.Text.Html)
+    }
+
+    // Serve index.html explicitly at /index.html path
+    get("index.html") {
+      call.respondText(rewrittenIndexHtml, contentType = ContentType.Text.Html)
+    }
+
+    // Serve static assets via singlePageApplication
+    // This handles the SPA fallback for all other paths under the route
+    singlePageApplication {
+      filesPath = "/static/db-scheduler"
+      useResources = true
+    }
   }
 
   configureRouting(config)
@@ -71,6 +103,17 @@ class DbSchedulerUIConfiguration {
    * Path to the UI, default is `/db-scheduler`
    */
   var routePath: String = "/db-scheduler"
+
+  /**
+   * Context path prefix for the UI.
+   * This can be used when the application is hosted behind a reverse proxy with a path prefix.
+   * It will be injected as `window.CONTEXT_PATH` and used to prefix static asset URLs.
+   * Default is empty string (no prefix).
+   * Example: If your backend is reachable at `https://example.com/my-app`, set this to `"/my-app"`.
+   * Note: This is independent from [routePath]. If both are set, the full path would be
+   * `contextPath + routePath` (e.g., `/my-app/db-scheduler`).
+   */
+  var contextPath: String = ""
 
   /**
    * Show task data in the UI, default is `true`
@@ -127,6 +170,7 @@ class DbSchedulerUIConfiguration {
    */
   fun from(other: DbSchedulerUIConfiguration) {
     this.routePath = other.routePath
+    this.contextPath = other.contextPath
     this.taskData = other.taskData
     this.serializer = other.serializer
     this.enabled = other.enabled
