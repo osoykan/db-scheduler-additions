@@ -37,33 +37,31 @@ fun Route.dbSchedulerUI(config: DbSchedulerUIConfiguration) {
       useResources = true
       applicationRoute = config.routePath
     }
+  } else {
+    // Load and rewrite the index.html with context path
+    val indexHtml = getResourceAsText("static/db-scheduler/index.html")
+    val rewrittenIndexHtml = rewriteIndexHtmlWithContextPath(indexHtml, config.contextPath)
 
-    return
-  }
+    val routePathWithoutLeadingSlash = config.routePath.removePrefix("/")
 
-  // Load and rewrite the index.html with context path
-  val indexHtml = getResourceAsText("static/db-scheduler/index.html")
-  val rewrittenIndexHtml = rewriteIndexHtmlWithContextPath(indexHtml, config.contextPath)
+    // Route for the db-scheduler path
+    route(routePathWithoutLeadingSlash) {
+      // Serve the rewritten index.html at the root of the route path
+      get {
+        call.respondText(rewrittenIndexHtml, contentType = ContentType.Text.Html)
+      }
 
-  val routePathWithoutLeadingSlash = config.routePath.removePrefix("/")
+      // Serve index.html explicitly at /index.html path
+      get("index.html") {
+        call.respondText(rewrittenIndexHtml, contentType = ContentType.Text.Html)
+      }
 
-  // Route for the db-scheduler path
-  route(routePathWithoutLeadingSlash) {
-    // Serve the rewritten index.html at the root of the route path
-    get {
-      call.respondText(rewrittenIndexHtml, contentType = ContentType.Text.Html)
-    }
-
-    // Serve index.html explicitly at /index.html path
-    get("index.html") {
-      call.respondText(rewrittenIndexHtml, contentType = ContentType.Text.Html)
-    }
-
-    // Serve static assets via singlePageApplication
-    // This handles the SPA fallback for all other paths under the route
-    singlePageApplication {
-      filesPath = "/static/db-scheduler"
-      useResources = true
+      // Serve static assets via singlePageApplication
+      // This handles the SPA fallback for all other paths under the route
+      singlePageApplication {
+        filesPath = "/static/db-scheduler"
+        useResources = true
+      }
     }
   }
 
