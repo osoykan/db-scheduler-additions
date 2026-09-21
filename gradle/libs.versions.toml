@@ -6,9 +6,9 @@ arrow = "2.2.3"
 micrometer-prometheus = "1.17.1"
 dbscheduler = "16.12.0"
 slf4j = "2.0.19"
-ktor = "3.5.2"
+ktor = "3.6.0"
 koin = "4.2.2"
-mongodb = "5.11.1"
+mongodb = "5.12.0"
 
 ## test
 kotest = "6.2.5"
