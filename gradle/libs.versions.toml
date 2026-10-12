@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 kotlinx = "1.11.0"
 jackson = "2.22.3"
 arrow = "2.2.3"
@@ -64,13 +64,13 @@ kotest-property-jvm = { module = "io.kotest:kotest-property-jvm", version.ref = 
 datafaker = { module = "net.datafaker:datafaker", version = "2.7.0" }
 kotlinlogging = { module = "io.github.oshai:kotlin-logging", version = "8.0.4" }
 hikari = { module = "com.zaxxer:HikariCP", version = "7.1.0" }
-postgresql = { module = "org.postgresql:postgresql", version = "42.7.13" }
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.14" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version = "2.0.5" }
 testcontainers-mongo = { module = "org.testcontainers:testcontainers-mongodb", version = "2.0.5" }
 
 [plugins]
 testLogger = { id = "com.adarshr.test-logger", version = "4.0.0" }
-spotless = { id = "com.diffplug.spotless", version = "8.10.3" }
+spotless = { id = "com.diffplug.spotless", version = "8.10.4" }
 kover = { id = "org.jetbrains.kotlinx.kover", version = "0.9.11" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.37.0" }
 node = { id = "com.github.node-gradle.node", version = "7.1.0" }
