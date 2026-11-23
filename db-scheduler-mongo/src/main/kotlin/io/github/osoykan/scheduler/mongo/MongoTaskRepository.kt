@@ -218,6 +218,20 @@ class MongoTaskRepository(
     limit: Int
   ): List<Execution> = lockAndFetchGeneric(now, limit)
 
+  private fun notPickedFilter(taskInstanceId: TaskInstanceId): Bson = Filters.and(
+    Filters.eq(MongoTaskEntity::identity.name, TaskEntity.documentId(taskInstanceId.taskName, taskInstanceId.id)),
+    Filters.eq(MongoTaskEntity::picked.name, false)
+  )
+
+  override suspend fun removeIfNotPicked(taskInstanceId: TaskInstanceId): Boolean = collection
+    .deleteOne(notPickedFilter(taskInstanceId))
+    .deletedCount == 1L
+
+  override suspend fun rescheduleIfNotPicked(
+    taskInstanceId: TaskInstanceId,
+    rescheduleUpdate: RescheduleUpdate
+  ): Boolean = collection.updateOne(notPickedFilter(taskInstanceId), rescheduleUpdates(rescheduleUpdate)).modifiedCount == 1L
+
   override suspend fun remove(execution: Execution) {
     val removed = collection
       .deleteOne(
@@ -262,6 +276,16 @@ class MongoTaskRepository(
       Filters.eq(MongoTaskEntity::version.name, execution.version)
     )
 
+    val updated = collection.updateOne(filter, rescheduleUpdates(rescheduleUpdate)).modifiedCount
+
+    if (updated != 1L) {
+      throw ExecutionException("Expected one execution to be updated, but updated $updated. Indicates a bug.", execution)
+    }
+
+    return true
+  }
+
+  private fun rescheduleUpdates(rescheduleUpdate: RescheduleUpdate): Bson {
     val updates = mutableListOf(
       Updates.set(MongoTaskEntity::picked.name, false),
       Updates.set(MongoTaskEntity::pickedBy.name, null),
@@ -275,13 +299,7 @@ class MongoTaskRepository(
     rescheduleUpdate.consecutiveFailures()?.let { updates.add(Updates.set(MongoTaskEntity::consecutiveFailures.name, it.value())) }
     rescheduleUpdate.data()?.let { updates.add(Updates.set(MongoTaskEntity::taskData.name, serializer.serialize(it.value()))) }
 
-    val updated = collection.updateOne(filter, Updates.combine(updates)).modifiedCount
-
-    if (updated != 1L) {
-      throw ExecutionException("Expected one execution to be updated, but updated $updated. Indicates a bug.", execution)
-    }
-
-    return true
+    return Updates.combine(updates)
   }
 
   override suspend fun reschedule(

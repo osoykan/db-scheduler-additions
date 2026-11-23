@@ -142,6 +142,17 @@ class KTaskRepository(
       }.merge()
   }
 
+  override fun removeIfNotPicked(taskInstanceId: TaskInstanceId): Boolean = runBlocking(scope.coroutineContext) {
+    taskRepository.removeIfNotPicked(taskInstanceId)
+  }
+
+  override fun rescheduleIfNotPicked(
+    taskInstanceId: TaskInstanceId,
+    rescheduleUpdate: RescheduleUpdate
+  ): Boolean = runBlocking(scope.coroutineContext) {
+    taskRepository.rescheduleIfNotPicked(taskInstanceId, rescheduleUpdate)
+  }
+
   override fun remove(execution: Execution) = runBlocking(scope.coroutineContext) {
     logger.debug("Removing for {}", execution)
     Either

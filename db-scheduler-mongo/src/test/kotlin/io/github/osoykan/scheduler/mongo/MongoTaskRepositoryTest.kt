@@ -109,6 +109,37 @@ class MongoTaskRepositoryTest : AnnotationSpec() {
     repo.getExecution(inst.taskName, inst.id).isPresent shouldBe false
   }
 
+  @Test
+  suspend fun `client mutations only affect existing unpicked tasks`() {
+    val (repo, _) = freshRepo()
+    val inst = instance()
+    val id = inst.taskInstance
+    val nextTime = inst.executionTime.truncatedTo(ChronoUnit.MILLIS).plusSeconds(60)
+    val update = RescheduleUpdate.toExecutionTime(nextTime).build()
+
+    repo.rescheduleIfNotPicked(id, update) shouldBe false
+    repo.removeIfNotPicked(id) shouldBe false
+
+    repo.createIfNotExists(inst)
+    val before = repo.only()
+    repo.rescheduleIfNotPicked(id, update) shouldBe true
+    val rescheduled = repo.only()
+    rescheduled.executionTime shouldBe nextTime
+    rescheduled.version shouldBe before.version + 1
+
+    repo.removeIfNotPicked(id) shouldBe true
+    repo.getExecution(id).isPresent shouldBe false
+
+    repo.createIfNotExists(inst)
+    val picked = repo.pick(repo.only(), clock.now()).orElseThrow()
+    repo.rescheduleIfNotPicked(id, update) shouldBe false
+    repo.removeIfNotPicked(id) shouldBe false
+    val stored = repo.getExecution(id).orElseThrow()
+    stored.picked shouldBe true
+    stored.executionTime shouldBe picked.executionTime
+    stored.version shouldBe picked.version
+  }
+
   // ---- Bug #2: getExecutionsFailingLongerThan predicate ----
 
   @Test

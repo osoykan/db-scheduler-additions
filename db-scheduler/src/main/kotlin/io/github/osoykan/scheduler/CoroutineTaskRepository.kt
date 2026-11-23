@@ -28,6 +28,10 @@ interface CoroutineTaskRepository {
 
   suspend fun lockAndGetDue(now: Instant, limit: Int): List<Execution>
 
+  suspend fun removeIfNotPicked(taskInstanceId: TaskInstanceId): Boolean
+
+  suspend fun rescheduleIfNotPicked(taskInstanceId: TaskInstanceId, rescheduleUpdate: RescheduleUpdate): Boolean
+
   suspend fun remove(execution: Execution)
 
   suspend fun unpickPickedBatch(pickedExecutions: List<Execution>)

@@ -48,6 +48,8 @@ class MongoScheduler(
     shutdownMaxWait.toJavaDuration(),
     logLevel,
     logStackTrace,
+    SchedulerBuilder.LOG_LONG_RUNNING_EXECUTIONS,
+    SchedulerBuilder.DEFAULT_LONG_RUNNING_EXECUTIONS_LOGGING_THRESHOLD,
     onStartup,
     executorService,
     houseKeeperExecutorService
