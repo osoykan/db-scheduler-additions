@@ -224,7 +224,8 @@ class MongoTaskRepository(
   )
 
   override suspend fun removeIfNotPicked(taskInstanceId: TaskInstanceId): Boolean = collection
-    .deleteOne(notPickedFilter(taskInstanceId)).deletedCount == 1L
+    .deleteOne(notPickedFilter(taskInstanceId))
+    .deletedCount == 1L
 
   override suspend fun rescheduleIfNotPicked(
     taskInstanceId: TaskInstanceId,
